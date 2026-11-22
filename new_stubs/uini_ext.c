@@ -206,6 +206,54 @@ DWORD KEXAPI kex_uini_GetPrivateProfileStringW(LPCWSTR app, LPCWSTR key, LPCWSTR
     return r;
 }
 
+/* build 132: GetPrivateProfileSectionW. Measured (.NET Framework 3.5 SP1 setup, probes/sdbread.c on its UTF-16 setup.sdb):
+ * GetPrivateProfileStringW read it, GetPrivateProfileSectionW returned 0 -> "LoadSetupDatabase(): The .sdb file is
+ * either missing, corrupt, or the signature portion is missing". NT returns every line of the section as stored, one
+ * per string (blanks around the line removed; "key=value" with blanks around the '=' removed, the value as written,
+ * quotes kept); comment lines (';') and empty lines are left out; double zero at the end; when the buffer is too
+ * small the result is cut and size - 2 returned. */
+typedef DWORD (WINAPI *T_GPPSW)(LPCWSTR, LPWSTR, DWORD, LPCWSTR);
+DWORD KEXAPI kex_GetPrivateProfileSectionW(LPCWSTR app, LPWSTR buf, DWORD size, LPCWSTR file)
+{
+    static T_GPPSW prev; char path[MAX_PATH]; WCHAR *t; DWORD n, pos = 0;
+    if (app && buf && size && file && is_uini(file, path)) {
+        lock();
+        t = load(path, &n);
+        if (t) {
+            const WCHAR *p = t, *end = t + n; LINE l; BOOL in = FALSE, cut = FALSE;
+            while (p < end && !cut) {
+                const WCHAR *a, *b, *eq; int k;
+                p = next_line(p, end, &l);
+                if (l.kind == 1) { if (in) break; in = same(l.name, l.nn, app); continue; }
+                if (!in) continue;
+                a = l.s; b = l.s + l.n; while (a < b && blank(*a)) a++; while (b > a && blank(b[-1])) b--;
+                if (a == b || *a == L';') continue;
+#define OUTC(c) do { if (pos >= size - 2) { cut = TRUE; break; } buf[pos++] = (c); } while (0)
+                if (l.kind == 2) {
+                    for (k = 0; k < l.nn && !cut; k++) OUTC(l.name[k]);
+                    if (!cut) OUTC(L'=');
+                    eq = l.name + l.nn; while (eq < b && *eq != L'=') eq++;
+                    if (eq < b) eq++;
+                    while (eq < b && blank(*eq)) eq++;
+                    for (; eq < b && !cut; eq++) OUTC(*eq);
+                } else for (; a < b && !cut; a++) OUTC(*a);
+                if (!cut) OUTC(0);
+#undef OUTC
+            }
+            if (cut) { if (size >= 2) { buf[size - 2] = 0; buf[size - 1] = 0; } pos = size >= 2 ? size - 2 : 0; }
+            else { buf[pos] = 0; if (pos == 0 && size > 1) buf[1] = 0; }
+            HeapFree(GetProcessHeap(), 0, t);
+            unlock();
+            SetLastError(ERROR_SUCCESS);
+            return pos;
+        }
+        unlock();
+    }
+    if (!prev) prev = (T_GPPSW)(void *)kex_prev_impl("KERNEL32.DLL", "GetPrivateProfileSectionW");
+    if (!prev) { SetLastError(ERROR_CALL_NOT_IMPLEMENTED); if (buf && size) buf[0] = 0; return 0; }
+    return prev(app, buf, size, file);
+}
+
 typedef UINT (WINAPI *T_GPPIW)(LPCWSTR, LPCWSTR, INT, LPCWSTR);
 UINT KEXAPI kex_GetPrivateProfileIntW(LPCWSTR app, LPCWSTR key, INT def, LPCWSTR file)
 {

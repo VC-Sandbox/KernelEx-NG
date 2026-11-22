@@ -1814,6 +1814,7 @@ MsiApplyMultiplePatchesA MSI,MSI@239
 MsiApplyMultiplePatchesW MSI,MSI@240
 GetPrivateProfileStringW KERNEL32
 GetPrivateProfileIntW KERNEL32
+GetPrivateProfileSectionW KERNEL32
 WritePrivateProfileStringW KERNEL32
 FormatMessageW KERNEL32
 MsiInstallProductA MSI,MSI@87
@@ -2157,3 +2158,8 @@ TaskDialog COMCTL32
 GetGlyphIndicesW GDI32
 GetCharWidthI GDI32
 AlphaBlend MSIMG32
+LsaOpenPolicy ADVAPI32
+LsaClose ADVAPI32
+LsaFreeMemory ADVAPI32
+LsaQueryInformationPolicy ADVAPI32
+LsaNtStatusToWinError ADVAPI32
