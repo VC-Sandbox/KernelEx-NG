@@ -1,0 +1,29 @@
+# Build output
+new_stubs/build/
+*.o
+*.obj
+*.exe
+*.EXE
+*.dll
+*.DLL
+*.iso
+*.zip
+*.7z
+*.pyc
+__pycache__/
+new_stubs/vxd_alias/fixlink.bin
+# keep the prebuilt helper VxD (building it needs Open Watcom)
+!new_stubs/vxd_alias/kexalias.vxd
+
+# Local-only files
+.abacus.donotdelete
+*.orig
+*.log
+*.LOG
+
+# private working notes and the developers' VM test harness are kept outside this repository
+vmharness/
+HANDOFF*.md
+PROGRESS_*.md
+CLAUDE.md
+probes/*.COM

@@ -1,0 +1,20 @@
+LIBRARY userenv.dll
+EXPORTS
+	CreateEnvironmentBlock
+	DestroyEnvironmentBlock
+	ExpandEnvironmentStringsForUserA
+	ExpandEnvironmentStringsForUserW
+	GetAllUsersProfileDirectoryA
+	GetAllUsersProfileDirectoryW
+	GetProfilesDirectoryA
+	GetProfilesDirectoryW
+	GetProfileType
+	GetUserProfileDirectoryA
+	GetUserProfileDirectoryW
+	LoadUserProfileA
+	LoadUserProfileW
+	RegisterGPNotification
+	UnloadUserProfile
+	UnregisterGPNotification
+	EnterCriticalPolicySection
+	LeaveCriticalPolicySection

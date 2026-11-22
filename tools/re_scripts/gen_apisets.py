@@ -1,0 +1,152 @@
+#!/usr/bin/env python3
+"""gen_apisets.py - build new_stubs/apisets.txt from the real Win10 api-set forwarder DLLs.
+
+Each export of a Win10 (i386, downlevel) api-ms-win-*.dll is a forwarder like
+"kernel32.InitOnceComplete". For every such export we choose a Win98 SE target:
+  1. kexnt          - KernelEx-NG implements it (export list of build/kexnt.def)
+  2. <dll>          - the Win98 SE CD DLL that the Win10 forwarder points to exports it
+  3. kernel32       - Win98 kernel32 (CD) exports the same name
+  4. <dll> + "kex"  - KernelEx (kex_inventory.json) supplies it at runtime in that DLL
+Exports that resolve nowhere are left out (a forwarder to a missing name would make
+the import fail anyway) and listed in the report so they become the next work items.
+Lines in --manual (same 3-column format) override generated ones.
+
+Usage:
+  python3 gen_apisets.py --win10 win10_dump.json --win98 win98cd_dump.json \
+      --kex kex_inventory.json --kexnt-def build/kexnt.def --manual apisets_manual.txt \
+      -o apisets.txt --report apisets_report.md [--only-required chromium_manifest.json]
+"""
+import argparse, json, re, sys
+from collections import defaultdict
+
+# Win10 forwarder targets that live in a different DLL on Win9x.
+HOST_MAP = {'kernelbase': 'kernel32', 'api-ms-win-core-kernel32-legacy-l1-1-0': 'kernel32',
+            'sechost': 'advapi32', 'gdi32full': 'gdi32', 'win32u': 'user32',
+            'ntdll': 'ntdll'}
+SKIP_PREFIX = ('api-ms-win-crt-',)     # UCRT sets: served by our future ucrtbase, not forwarders
+
+
+def exports(dump):
+    out = defaultdict(set)
+    for f in json.load(open(dump))['files']:
+        ex = f.get('exports')
+        if ex:
+            out[f['name'].lower().rsplit('.', 1)[0]].update(e['name'] for e in ex['functions'] if e['name'])
+    return out
+
+
+def main():
+    ap = argparse.ArgumentParser()
+    ap.add_argument('--win10', required=True)
+    ap.add_argument('--win98', required=True)
+    ap.add_argument('--kex')
+    ap.add_argument('--kexnt-def', required=True)
+    ap.add_argument('--manual')
+    ap.add_argument('--only-required', action='append', default=[],
+                    help='manifest(s): emit only api sets these binaries import (default: all)')
+    ap.add_argument('-o', '--output', required=True)
+    ap.add_argument('--report')
+    a = ap.parse_args()
+
+    w98 = exports(a.win98)
+    kexnt = {l.split('=')[0].strip() for l in open(a.kexnt_def) if '=' in l}
+    kex = defaultdict(set)
+    if a.kex:
+        for dll, libs in json.load(open(a.kex)).items():
+            for lib in libs.values():
+                kex[dll.lower()].update(n.rstrip('*/') for n, _ in lib.get('named', []))
+
+    wanted = None
+    if a.only_required:
+        wanted = set()
+        for m in a.only_required:
+            doc = json.load(open(m))
+            bad = {b['file'] for b in doc.get('binaries', []) if b.get('machine') != 'i386'}
+            for dll, v in doc['dlls'].items():
+                if any(i not in bad for f in v['functions'].values() for i in f['importers']):
+                    wanted.add(dll.lower().rsplit('.', 1)[0])
+
+    sets = {}
+    for f in json.load(open(a.win10))['files']:
+        n = f['name'].lower().rsplit('.', 1)[0]
+        if not n.startswith(('api-ms-win-', 'ext-ms-win-')) or n.startswith(SKIP_PREFIX) or not f.get('exports'):
+            continue
+        if f.get('machine') != 'i386' or (wanted is not None and n not in wanted):
+            continue
+        sets.setdefault(n, f['exports']['functions'])     # downlevel and main copies are identical
+
+    rows, missing, stats = {}, defaultdict(list), defaultdict(int)
+    for s, fns in sorted(sets.items()):
+        for e in fns:
+            name, fwd = e['name'], e.get('forwarder') or ''
+            if not name:
+                continue
+            tdll, _, tname = fwd.partition('.')
+            tdll = HOST_MAP.get(tdll.lower(), tdll.lower()) if tdll else 'kernel32'
+            tname = tname or name
+            if name in kexnt:
+                rows[(s, name)] = ('kexnt', 'kexnt'); stats['kexnt'] += 1
+            elif tname == name and name in w98.get(tdll, ()):
+                rows[(s, name)] = (tdll, 'win98'); stats['win98'] += 1
+            elif name in w98.get('kernel32', ()):
+                rows[(s, name)] = ('kernel32', 'win98'); stats['win98'] += 1
+            elif name in kex.get(tdll, ()) or name in kex.get('kernel32', ()):
+                rows[(s, name)] = (tdll if name in kex.get(tdll, ()) else 'kernel32', 'kernelex')
+                stats['kernelex'] += 1
+            else:
+                missing[s].append(name); stats['missing'] += 1
+
+    manual = 0
+    if a.manual:
+        for l in open(a.manual):
+            p = l.split()
+            if len(p) == 3 and not l.startswith('#'):
+                rows[(p[0], p[1])] = (p[2], 'manual'); manual += 1
+                if p[1] in missing.get(p[0], []):
+                    missing[p[0]].remove(p[1])
+
+    with open(a.output, 'w') as o:
+        o.write('# GENERATED by tools/re_scripts/gen_apisets.py - edit apisets_manual.txt instead.\n'
+                '# <apiset-dll-basename> <function> <target-dll>   (source: kexnt|win98|kernelex|manual)\n')
+        # "#dep <set> <dll> <fn>": the shell must IMPORT one function from every forward
+        # target. KernelEx's forwarder path (resolver.cpp OriExportFromOrdinal) only does
+        # GetModuleHandle(target), so a target that is not already mapped would resolve to
+        # NULL. A static import makes the 9x loader map the target before the client's
+        # imports are bound. The anchor must exist natively (or in kexnt), never KernelEx-only.
+        targets = defaultdict(set)
+        for (s, name), (t, src) in rows.items():
+            if t != 'kernel32':
+                targets[s].add(t)
+        for s in sorted(targets):
+            for t in sorted(targets[s]):
+                pool = kexnt if t == 'kexnt' else w98.get(t, set())
+                own = sorted(n for (s2, n), (t2, _src) in rows.items() if s2 == s and t2 == t and n in pool)
+                anchor = own[0] if own else (sorted(pool)[0] if pool else None)
+                if anchor:
+                    o.write('#dep %s %s %s\n' % (s, t, anchor))
+                else:
+                    sys.stderr.write('[warn] %s: no native anchor export in %s\n' % (s, t))
+        cur = None
+        for (s, name), (t, src) in sorted(rows.items()):
+            if s != cur:
+                o.write('# --- %s\n' % s); cur = s
+            o.write('%s %s %s\n' % (s, name, t))
+    if a.report:
+        with open(a.report, 'w') as r:
+            r.write('# API-set forwarder coverage\n\n%d api sets, %d forwarders: kexnt %d, win98 native %d, '
+                    'KernelEx runtime %d, manual %d; **%d unresolved** (left out).\n\n'
+                    % (len(sets), len(rows), stats['kexnt'], stats['win98'], stats['kernelex'], manual,
+                       sum(len(v) for v in missing.values())))
+            r.write('| api set | resolved | unresolved | unresolved functions |\n|---|---|---|---|\n')
+            per = defaultdict(int)
+            for (s, _n) in rows:
+                per[s] += 1
+            for s in sorted(sets):
+                r.write('| %s | %d | %d | %s |\n' % (s, per[s], len(missing[s]), ' '.join(sorted(missing[s]))))
+    sys.stderr.write('%d sets, %d forwarders (kexnt %d / win98 %d / kernelex %d / manual %d), %d unresolved\n' % (
+        len(sets), len(rows), stats['kexnt'], stats['win98'], stats['kernelex'], manual,
+        sum(len(v) for v in missing.values())))
+
+
+if __name__ == '__main__':
+    main()

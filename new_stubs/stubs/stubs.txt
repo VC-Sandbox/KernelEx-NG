@@ -1,0 +1,282 @@
+# Stub DLLs for Windows DLLs that do not exist on Windows 98 SE (written from public documentation;
+# no Microsoft code). Installed by KEXSETUP only where no DLL of that name exists.
+# <dll> <function> <behaviour>
+#   hr:<hex>[:N,...]     return that HRESULT; *(void**)argN = NULL for each listed out argument
+#   bool:<err>[:N,...]   return FALSE, SetLastError(err)
+#   ptr:<err>[:N,...]    return NULL,  SetLastError(err)
+#   val:<num>[:N,...]    return the number (int/DWORD)
+#   u64:<num>            return a 64-bit number
+#   void                 return nothing
+#   custom               implemented by hand in <dll-basename>.c
+# Argument sizes come from the MinGW-w64 import libraries (decorated stdcall names).
+winhttp.dll WinHttpOpen ptr:120
+winhttp.dll WinHttpCloseHandle bool:6
+winhttp.dll WinHttpConnect ptr:120
+winhttp.dll WinHttpOpenRequest ptr:120
+winhttp.dll WinHttpAddRequestHeaders bool:120
+winhttp.dll WinHttpSendRequest bool:120
+winhttp.dll WinHttpWriteData bool:120:4
+winhttp.dll WinHttpReceiveResponse bool:120
+winhttp.dll WinHttpQueryHeaders bool:120
+winhttp.dll WinHttpReadData bool:120:4
+winhttp.dll WinHttpSetTimeouts bool:120
+winhttp.dll WinHttpCrackUrl bool:120
+winhttp.dll WinHttpSetStatusCallback val:0xFFFFFFFF
+winhttp.dll WinHttpGetIEProxyConfigForCurrentUser custom
+winhttp.dll WinHttpGetProxyForUrl bool:120
+winhttp.dll WinHttpGetProxyForUrlEx val:120
+winhttp.dll WinHttpCreateProxyResolver val:120:2
+winhttp.dll WinHttpGetProxyResult val:120
+winhttp.dll WinHttpFreeProxyResult void
+winhttp.dll WinHttpGetDefaultProxyConfiguration bool:120
+winhttp.dll WinHttpCheckPlatform val:0
+winhttp.dll WinHttpDetectAutoProxyConfigUrl bool:12180:2
+winhttp.dll WinHttpQueryAuthSchemes bool:120
+winhttp.dll WinHttpQueryDataAvailable bool:120
+winhttp.dll WinHttpSetCredentials bool:120
+dbghelp.dll SymInitialize bool:120
+dbghelp.dll SymInitializeW bool:120
+dbghelp.dll SymCleanup bool:6
+dbghelp.dll SymSetOptions custom
+dbghelp.dll SymGetOptions custom
+dbghelp.dll SymFromAddr bool:120
+dbghelp.dll SymGetLineFromAddr64 bool:120
+dbghelp.dll SymGetModuleInfo64 bool:120
+dbghelp.dll SymGetSearchPathW bool:120
+dbghelp.dll SymSetSearchPathW bool:120
+dbghelp.dll SymSrvGetFileIndexInfo bool:120
+dbghelp.dll SymFunctionTableAccess64 ptr:0
+dbghelp.dll SymGetModuleBase64 u64:0
+dbghelp.dll StackWalk64 bool:0
+dbghelp.dll MiniDumpWriteDump bool:120
+dbghelp.dll UnDecorateSymbolName val:0
+dbghelp.dll EnumerateLoadedModules custom
+dbghelp.dll EnumerateLoadedModules64 custom
+dbghelp.dll EnumerateLoadedModulesW64 custom
+dbghelp.dll SymLoadModule64 u64:0
+dbghelp.dll SymLoadModuleExW u64:0
+dbghelp.dll SymUnloadModule64 bool:0
+dbghelp.dll SymRefreshModuleList bool:120
+dbghelp.dll SymGetModuleInfoW64 bool:120
+dbghelp.dll SymFromAddrW bool:120
+dbghelp.dll SymGetLineFromAddrW64 bool:120
+dbghelp.dll SymGetSymFromAddr64 bool:120
+dwrite.dll DWriteCreateFactory hr:80004001:3
+propsys.dll InitPropVariantFromCLSID custom
+propsys.dll InitPropVariantFromStringVector hr:80004001
+propsys.dll PSCreateMemoryPropertyStore hr:80004001:2
+propsys.dll PSGetPropertyKeyFromName hr:80004001
+propsys.dll VariantCompare val:0
+bcryptprimitives.dll ProcessPrng custom
+bcrypt.dll BCryptOpenAlgorithmProvider custom
+bcrypt.dll BCryptCloseAlgorithmProvider custom
+bcrypt.dll BCryptGenRandom custom
+dwmapi.dll DwmIsCompositionEnabled custom
+dwmapi.dll DwmDefWindowProc val:0:5
+dwmapi.dll DwmExtendFrameIntoClientArea custom
+dwmapi.dll DwmEnableBlurBehindWindow hr:80263001
+dwmapi.dll DwmFlush hr:80263001
+dwmapi.dll DwmGetCompositionTimingInfo hr:80263001
+dwmapi.dll DwmGetWindowAttribute hr:80263001
+dwmapi.dll DwmSetWindowAttribute hr:80263001
+dwmapi.dll DwmEnableComposition hr:80263001
+# build 131: Pale Moon 35 xul.dll imports these (taskbar previews) - composition is off on Windows 98
+dwmapi.dll DwmSetIconicLivePreviewBitmap hr:80263001
+dwmapi.dll DwmSetIconicThumbnail hr:80263001
+dwmapi.dll DwmInvalidateIconicBitmaps hr:80263001
+dwmapi.dll DwmQueryThumbnailSourceSize hr:80263001
+dwmapi.dll DwmUnregisterThumbnail hr:80263001
+dwmapi.dll DwmUpdateThumbnailProperties hr:80263001
+dwmapi.dll DwmSetPresentParameters hr:80263001
+dwmapi.dll DwmSetDxFrameDuration hr:80263001
+dwmapi.dll DwmModifyPreviousDxFrameDuration hr:80263001
+dwmapi.dll DwmGetTransportAttributes hr:80263001
+dwmapi.dll DwmAttachMilContent hr:80263001
+dwmapi.dll DwmDetachMilContent hr:80263001
+dwmapi.dll DwmRegisterThumbnail hr:80263001:2
+dwmapi.dll DwmGetColorizationColor hr:80263001
+dxgi.dll CreateDXGIFactory hr:887A0004:2
+dxgi.dll CreateDXGIFactory1 hr:887A0004:2
+dxgi.dll CreateDXGIFactory2 hr:887A0004:3
+d3d11.dll D3D11CreateDevice hr:887A0004:8,10
+d3d11.dll D3D11CreateDeviceAndSwapChain hr:887A0004:9,10,12
+dcomp.dll DCompositionCreateDevice hr:80004001:3
+dcomp.dll DCompositionCreateDevice2 hr:80004001:3
+dcomp.dll DCompositionCreateSurfaceHandle hr:80004001:3
+mfplat.dll MFStartup hr:80004001
+mfplat.dll MFShutdown val:0
+mfplat.dll MFCreateAttributes hr:80004001:1
+mfplat.dll MFCreateMediaType hr:80004001:1
+mfplat.dll MFCreateSample hr:80004001:1
+mfplat.dll MFCreateMemoryBuffer hr:80004001:2
+mfplat.dll MFCreateAlignedMemoryBuffer hr:80004001:3
+mfplat.dll MFCreateAsyncResult hr:80004001:4
+mfplat.dll MFCreateDXGIDeviceManager hr:80004001:1,2
+mfplat.dll MFCreateDXGISurfaceBuffer hr:80004001:5
+mfplat.dll MFCreateEventQueue hr:80004001:1
+mfplat.dll MFCreateMediaEvent hr:80004001:5
+mfplat.dll MFCreatePresentationDescriptor hr:80004001:3
+mfplat.dll MFCreateStreamDescriptor hr:80004001:4
+mfplat.dll MFFrameRateToAverageTimePerFrame hr:80004001
+mfplat.dll MFGetSystemTime u64:0
+mfplat.dll MFLockDXGIDeviceManager hr:80004001:1,2
+mfplat.dll MFUnlockDXGIDeviceManager hr:80004001
+mfplat.dll MFSerializeAttributesToStream hr:80004001
+mfplat.dll MFTEnumEx hr:80004001:5,6
+mf.dll MFCreateDeviceSource hr:80004001:2
+mf.dll MFEnumDeviceSources hr:80004001:2,3
+mfreadwrite.dll MFCreateSourceReaderFromMediaSource hr:80004001:3
+esent.dll JetCreateInstanceW val:-1001:1
+esent.dll JetSetSystemParameterW val:-1001
+esent.dll JetInit val:-1001
+esent.dll JetTerm val:0
+esent.dll JetBeginSessionW val:-1001:2
+esent.dll JetAttachDatabase2W val:-1001
+esent.dll JetOpenDatabaseW val:-1001:4
+esent.dll JetOpenTableW val:-1001:7
+esent.dll JetGetTableColumnInfoW val:-1001
+esent.dll JetMove val:-1001
+esent.dll JetRetrieveColumn val:-1001
+esent.dll JetCloseTable val:0
+ncrypt.dll NCryptOpenStorageProvider val:0x80090029:1
+ncrypt.dll NCryptOpenKey val:0x80090029:2
+ncrypt.dll NCryptCreatePersistedKey val:0x80090029:2
+ncrypt.dll NCryptFinalizeKey val:0x80090026
+ncrypt.dll NCryptFreeObject val:0x80090026
+ncrypt.dll NCryptGetProperty val:0x80090026
+ncrypt.dll NCryptSetProperty val:0x80090026
+ncrypt.dll NCryptExportKey val:0x80090026
+ncrypt.dll NCryptImportKey val:0x80090029:5
+ncrypt.dll NCryptSignHash val:0x80090026
+ncrypt.dll NCryptIsAlgSupported val:0x80090029
+ncrypt.dll NCryptCreateClaim val:0x80090029
+uiautomationcore.dll UiaHostProviderFromHwnd hr:80004001:2
+uiautomationcore.dll UiaReturnRawElementProvider val:0
+uiautomationcore.dll UiaRaiseAutomationEvent hr:80004001
+uiautomationcore.dll UiaRaiseAutomationPropertyChangedEvent hr:80004001
+uiautomationcore.dll UiaRaiseStructureChangedEvent hr:80004001
+uiautomationcore.dll UiaDisconnectProvider hr:80004001
+uiautomationcore.dll UiaDisconnectAllProviders hr:80004001
+uiautomationcore.dll UiaGetReservedMixedAttributeValue hr:80004001:1
+uiautomationcore.dll UiaGetReservedNotSupportedValue hr:80004001:1
+uiautomationcore.dll UiaClientsAreListening val:0
+winusb.dll WinUsb_Initialize bool:120:2
+winusb.dll WinUsb_Free bool:6
+winusb.dll WinUsb_GetAssociatedInterface bool:120:3
+winusb.dll WinUsb_ControlTransfer bool:120
+winusb.dll WinUsb_ReadPipe bool:120
+winusb.dll WinUsb_WritePipe bool:120
+winusb.dll WinUsb_ResetPipe bool:120
+winusb.dll WinUsb_SetCurrentAlternateSetting bool:120
+winusb.dll WinUsb_GetOverlappedResult bool:120
+wevtapi.dll EvtQuery ptr:120
+wevtapi.dll EvtCreateRenderContext ptr:120
+wevtapi.dll EvtNext bool:259
+wevtapi.dll EvtRender bool:120
+wevtapi.dll EvtClose val:1
+ndfapi.dll NdfCreateWebIncident hr:80004001:2
+ndfapi.dll NdfExecuteDiagnosis hr:80004001
+ndfapi.dll NdfCloseIncident hr:80004001
+tbs.dll Tbsi_GetDeviceInfo val:0x8028400F
+tbs.dll Tbsip_Submit_Command val:0x8028400F
+credui.dll CredUIPromptForWindowsCredentialsW val:50
+bthprops.cpl BluetoothFindFirstRadio ptr:259:2
+bthprops.cpl BluetoothFindRadioClose val:1
+bthprops.cpl BluetoothFindFirstDevice ptr:259
+bthprops.cpl BluetoothFindNextDevice bool:259
+bthprops.cpl BluetoothFindDeviceClose val:1
+bthprops.cpl BluetoothGetRadioInfo val:50
+bthprops.cpl BluetoothIsConnectable val:0
+bthprops.cpl BluetoothEnableDiscovery val:0
+bthprops.cpl BluetoothEnableIncomingConnections val:0
+bthprops.cpl BluetoothSdpGetAttributeValue val:50
+bthprops.cpl BluetoothSdpGetContainerElementData val:50
+# DNS client API (Windows 2000+). Mozilla (Mypal 29 / UXP) loads Dnsapi.dll at network start-up and aborts the whole
+# browser when it is missing ("MOZ_CRASH(ssManager->Init() failed)", 2026-11-01). Only used for record TTLs:
+# every query answers DNS_INFO_NO_RECORDS (9501) with no result list; addresses still come from Winsock.
+dnsapi.dll DnsQuery_A val:9501:5
+dnsapi.dll DnsQuery_W val:9501:5
+dnsapi.dll DnsQuery_UTF8 val:9501:5
+dnsapi.dll DnsFree void
+dnsapi.dll DnsRecordListFree void
+# bcp47mrm.dll: language-list distance (DirectWrite font fallback, delay-loaded). Not in the MinGW libraries.
+bcp47mrm.dll GetDistanceOfClosestLanguageInList@16 custom
+# xinput9_1_0.dll (build 124): the Windows Vista XInput, imported by games (Geometry Dash's libcocos2d.dll).
+# Windows 98 has no XInput controllers: every query says "no controller connected" (ERROR_DEVICE_NOT_CONNECTED).
+xinput9_1_0.dll XInputGetState val:1167
+xinput9_1_0.dll XInputSetState val:1167
+xinput9_1_0.dll XInputGetCapabilities val:1167
+xinput9_1_0.dll XInputGetDSoundAudioDeviceGuids val:1167
+# gdiplus.dll (build 125): a small GDI+ (PNG/BMP bitmaps, HBITMAP export) for WiX Burn's setup UI - stubs/gdiplus.c
+gdiplus.dll GdiplusStartup custom
+gdiplus.dll GdiplusShutdown custom
+gdiplus.dll GdipAlloc custom
+gdiplus.dll GdipFree custom
+gdiplus.dll GdipCreateBitmapFromStream custom
+gdiplus.dll GdipCreateBitmapFromFile custom
+gdiplus.dll GdipLoadImageFromStream custom
+gdiplus.dll GdipLoadImageFromFile custom
+gdiplus.dll GdipDisposeImage custom
+gdiplus.dll GdipCloneImage custom
+gdiplus.dll GdipGetImageWidth custom
+gdiplus.dll GdipGetImageHeight custom
+gdiplus.dll GdipCreateHBITMAPFromBitmap custom
+# build 128: MMDevAPI.DLL - Chrome delay-loads ActivateAudioInterfaceAsync (#17) for "share system audio"
+# (process loopback); KEXAUDIO.DLL implements it.
+mmdevapi.dll ActivateAudioInterfaceAsync@20%17 custom
+# build 131: Firefox 115 ESR imports (xul.dll, default-browser-agent.exe, osclientcerts.dll)
+bcrypt.dll BCryptCreateHash val:0xC0000225
+bcrypt.dll BCryptHashData val:0xC0000225
+bcrypt.dll BCryptFinishHash val:0xC0000225
+bcrypt.dll BCryptDestroyHash val:0xC0000225
+propsys.dll PropVariantToString hr:80004001
+ncrypt.dll BCryptGenRandom custom
+ktmw32.dll CreateTransaction val:0xFFFFFFFF
+ktmw32.dll CommitTransaction bool:120
+ktmw32.dll RollbackTransaction bool:120
+# build 131: Inno Setup 6.4 (K-Lite 20.2)
+winhttp.dll WinHttpSetOption bool:120
+winhttp.dll WinHttpQueryOption bool:120
+shcore.dll GetDpiForMonitor custom
+shcore.dll GetProcessDpiAwareness custom
+shcore.dll SetProcessDpiAwareness custom
+# build 131: LAV Filters avformat-lav (K-Lite 20.2)
+ncrypt.dll NCryptDeleteKey val:0x80090026
+ncrypt.dll NCryptDecrypt val:0x80090026
+ncrypt.dll BCryptOpenAlgorithmProvider val:0xC0000225:1
+ncrypt.dll BCryptCloseAlgorithmProvider val:0
+# build 131: Icaros property handler (K-Lite 20.2) registers property schemas - the Windows 98 shell has none to extend
+propsys.dll PSRegisterPropertySchema hr:0
+propsys.dll PSUnregisterPropertySchema hr:0
+propsys.dll PSCoerceToCanonicalValue hr:80004001
+propsys.dll InitPropVariantFromDoubleVector hr:80004001
+propsys.dll InitPropVariantFromUInt32Vector hr:80004001
+propsys.dll InitPropVariantFromFileTime hr:80004001
+# build 131: Firefox 160 xul.dll static imports (Windows 8+ DLLs)
+combase.dll CoTaskMemAlloc@4 custom
+combase.dll CoTaskMemFree@4 custom
+combase.dll CoTaskMemRealloc@8 custom
+combase.dll CoCreateFreeThreadedMarshaler@8 custom
+combase.dll CoIncrementMTAUsage@4 custom
+combase.dll CoDecrementMTAUsage@4 custom
+combase.dll CoGetApartmentType@8 custom
+combase.dll RoGetAgileReference@16 custom
+combase.dll RoInitialize@4 custom
+combase.dll RoUninitialize@0 custom
+combase.dll RoGetActivationFactory@12 custom
+combase.dll RoActivateInstance@8 custom
+combase.dll WindowsCreateString@12 custom
+combase.dll WindowsDeleteString@4 custom
+combase.dll WindowsGetStringRawBuffer@8 custom
+windowscodecs.dll WICConvertBitmapSource@12 custom
+# avrt.dll (build 131): Multimedia Class Scheduler client (Vista+). Firefox 115/160's xul.dll delay-loads it for its
+# audio threads; without the DLL the delay-load raised c06d007e and the browser process died. A task handle (non-NULL)
+# is given out and the thread keeps its priority (NT's scheduler service would raise it; on one CPU a time-critical
+# thread can starve Windows 98).
+avrt.dll AvSetMmThreadCharacteristicsA val:0x4B4D4D43
+avrt.dll AvSetMmThreadCharacteristicsW val:0x4B4D4D43
+avrt.dll AvSetMmMaxThreadCharacteristicsA val:0x4B4D4D43
+avrt.dll AvSetMmMaxThreadCharacteristicsW val:0x4B4D4D43
+avrt.dll AvRevertMmThreadCharacteristics val:1
+avrt.dll AvSetMmThreadPriority val:1
+avrt.dll AvQuerySystemResponsiveness val:1

@@ -1,0 +1,10 @@
+system win_vxd dynamic
+option map=kexalias.map
+option nodefaultlibs
+name kexalias.vxd
+file kexalias.obj
+segment '_TEXT'  PRELOAD NONDISCARDABLE
+segment '_DATA'  PRELOAD NONDISCARDABLE
+segment 'CONST'  PRELOAD NONDISCARDABLE
+segment 'CONST2' PRELOAD NONDISCARDABLE
+export VXD_DDB.1

@@ -1,0 +1,178 @@
+//Microsoft Developer Studio generated resource script.
+//
+#include "resource.h"
+
+#define APSTUDIO_READONLY_SYMBOLS
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 2 resource.
+//
+#include "afxres.h"
+
+/////////////////////////////////////////////////////////////////////////////
+#undef APSTUDIO_READONLY_SYMBOLS
+
+/////////////////////////////////////////////////////////////////////////////
+// Polish resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_PLK)
+#ifdef _WIN32
+LANGUAGE LANG_POLISH, SUBLANG_DEFAULT
+#pragma code_page(1250)
+#endif //_WIN32
+
+#ifdef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// TEXTINCLUDE
+//
+
+1 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "resource.h\0"
+END
+
+2 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "#include ""afxres.h""\r\n"
+    "\0"
+END
+
+3 TEXTINCLUDE DISCARDABLE 
+BEGIN
+    "\r\n"
+    "\0"
+END
+
+#endif    // APSTUDIO_INVOKED
+
+
+#ifndef _MAC
+/////////////////////////////////////////////////////////////////////////////
+//
+// Version
+//
+
+VS_VERSION_INFO VERSIONINFO
+ FILEVERSION 4,6,0,0
+ PRODUCTVERSION 4,6,0,0
+ FILEFLAGSMASK 0x3fL
+#ifdef _DEBUG
+ FILEFLAGS 0x1L
+#else
+ FILEFLAGS 0x0L
+#endif
+ FILEOS 0x40004L
+ FILETYPE 0x2L
+ FILESUBTYPE 0x0L
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "000004b0"
+        BEGIN
+            VALUE "Comments", "\0"
+            VALUE "CompanyName", "Xeno86\0"
+            VALUE "FileDescription", "KernelEx Base Shared Api Library\0"
+            VALUE "FileVersion", "4, 6, 0, 0\0"
+            VALUE "InternalName", "kexbases\0"
+            VALUE "LegalCopyright", "Copyright © 2009-2010, Xeno86\0"
+            VALUE "LegalTrademarks", "\0"
+            VALUE "OriginalFilename", "kexbases.dll\0"
+            VALUE "PrivateBuild", "\0"
+            VALUE "ProductName", "KernelEx\0"
+            VALUE "ProductVersion", "4.6.0 Beta 1\0"
+            VALUE "SpecialBuild", "\0"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x0, 1200
+    END
+END
+
+#endif    // !_MAC
+
+#endif    // Polish resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+/////////////////////////////////////////////////////////////////////////////
+// English (U.K.) resources
+
+#if !defined(AFX_RESOURCE_DLL) || defined(AFX_TARG_ENG)
+#ifdef _WIN32
+LANGUAGE LANG_ENGLISH, SUBLANG_ENGLISH_UK
+#pragma code_page(1252)
+#endif //_WIN32
+
+/////////////////////////////////////////////////////////////////////////////
+//
+// Dialog
+//
+
+IDD_ENDTASK DIALOG DISCARDABLE  20, 20, 200, 134
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "<unknown>"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "This Windows application cannot respond to the End Task request.  It may be busy, waiting for a response from you, or it may have stopped executing.",
+                    IDT_STATIC1,6,7,190,32
+    LTEXT           "o  Press Cancel to cancel and return to Windows.",
+                    IDT_STATIC1,6,39,190,16
+    LTEXT           "o  Press End Task to close this application immediately.  You will lose any unsaved information in this application.",
+                    IDT_STATIC1,6,57,190,24
+    LTEXT           "o  Press Wait to give the application %d seconds to finish what it is doing and then try to close the application again.",
+                    IDT_STATIC2,6,81,190,24
+    PUSHBUTTON      "&Wait",IDC_WAITTASK,18,112,45,14
+    PUSHBUTTON      "&End Task",IDC_ENDTASK,78,112,45,14
+    PUSHBUTTON      "Cancel",IDCANCEL,138,112,45,14
+END
+
+IDD_ENDTASK2 DIALOG DISCARDABLE  20, 20, 200, 134
+STYLE DS_MODALFRAME | WS_POPUP | WS_CAPTION | WS_SYSMENU
+CAPTION "<unknown>"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "This Windows application cannot respond to the End Task request.  It may be busy, waiting for a response from you, or it may have stopped executing.",
+                    IDT_STATIC1,6,7,190,32
+    LTEXT           "o  Press Cancel to cancel and return to Windows.",
+                    IDT_STATIC1,6,39,190,16
+    LTEXT           "o  Press End Task to close this application immediately.  You will lose any unsaved information in this application.",
+                    IDT_STATIC1,6,57,190,24
+    PUSHBUTTON      "&End Task",IDC_ENDTASK,60,112,65,14
+    PUSHBUTTON      "Cancel",IDCANCEL,131,112,65,14
+END
+
+IDD_SHUTDOWN_SAFE DIALOG DISCARDABLE  45, 22, 164, 52
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION
+CAPTION "Shutdown Computer"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "It is now safe to turn off your computer.",IDT_TEXT,20,
+                    13,132,8
+    DEFPUSHBUTTON   "&Restart",IDC_RESTART,55,32,51,14
+END
+
+IDD_STATUSDLG DIALOG DISCARDABLE  69, 73, 132, 42
+STYLE DS_MODALFRAME | WS_POPUP | WS_VISIBLE | WS_CAPTION
+CAPTION "Status"
+FONT 8, "MS Shell Dlg"
+BEGIN
+    LTEXT           "Status text",IDT_TEXT,11,12,112,18
+END
+
+#endif    // English (U.K.) resources
+/////////////////////////////////////////////////////////////////////////////
+
+
+
+#ifndef APSTUDIO_INVOKED
+/////////////////////////////////////////////////////////////////////////////
+//
+// Generated from the TEXTINCLUDE 3 resource.
+//
+
+
+/////////////////////////////////////////////////////////////////////////////
+#endif    // not APSTUDIO_INVOKED
+

@@ -1,0 +1,190 @@
+# Hand-written api sets (Chromium round): WinRT basics, shcore DPI scaling, power, realtime.
+# <apiset-dll-basename> <function> <target-dll>; "#dep" anchors make the 9x loader map kexnt first.
+#dep api-ms-win-core-winrt-l1-1-0 kexnt RoInitialize
+api-ms-win-core-winrt-l1-1-0 RoInitialize kexnt
+api-ms-win-core-winrt-l1-1-0 RoUninitialize kexnt
+api-ms-win-core-winrt-l1-1-0 RoActivateInstance kexnt
+api-ms-win-core-winrt-l1-1-0 RoGetActivationFactory kexnt
+#dep api-ms-win-core-winrt-string-l1-1-0 kexnt WindowsCreateString
+api-ms-win-core-winrt-string-l1-1-0 WindowsCreateString kexnt
+api-ms-win-core-winrt-string-l1-1-0 WindowsCreateStringReference kexnt
+api-ms-win-core-winrt-string-l1-1-0 WindowsDeleteString kexnt
+api-ms-win-core-winrt-string-l1-1-0 WindowsDuplicateString kexnt
+api-ms-win-core-winrt-string-l1-1-0 WindowsGetStringRawBuffer kexnt
+api-ms-win-core-winrt-string-l1-1-0 WindowsGetStringLen kexnt
+api-ms-win-core-winrt-string-l1-1-0 WindowsIsStringEmpty kexnt
+api-ms-win-core-winrt-string-l1-1-0 WindowsCompareStringOrdinal kexnt
+#dep api-ms-win-core-winrt-error-l1-1-0 kexnt RoOriginateErrorW
+api-ms-win-core-winrt-error-l1-1-0 RoOriginateErrorW kexnt
+api-ms-win-core-winrt-error-l1-1-0 RoOriginateError kexnt
+#dep api-ms-win-core-winrt-error-l1-1-1 kexnt RoOriginateLanguageException
+api-ms-win-core-winrt-error-l1-1-1 RoOriginateLanguageException kexnt
+api-ms-win-core-winrt-error-l1-1-1 RoOriginateErrorW kexnt
+api-ms-win-core-winrt-error-l1-1-1 RoOriginateError kexnt
+#dep api-ms-win-core-realtime-l1-1-1 kexnt QueryInterruptTime
+api-ms-win-core-realtime-l1-1-1 QueryInterruptTime kexnt
+api-ms-win-core-realtime-l1-1-1 QueryInterruptTimePrecise kexnt
+api-ms-win-core-realtime-l1-1-1 QueryUnbiasedInterruptTimePrecise kexnt
+api-ms-win-core-realtime-l1-1-1 QueryUnbiasedInterruptTime kexnt
+api-ms-win-core-realtime-l1-1-1 QueryProcessCycleTime kexnt
+api-ms-win-core-realtime-l1-1-1 QueryThreadCycleTime kexnt
+#dep api-ms-win-power-base-l1-1-0 kexnt CallNtPowerInformation
+api-ms-win-power-base-l1-1-0 CallNtPowerInformation kexnt
+api-ms-win-power-base-l1-1-0 PowerDeterminePlatformRoleEx kexnt
+#dep api-ms-win-power-setting-l1-1-0 kexnt PowerGetActiveScheme
+api-ms-win-power-setting-l1-1-0 PowerGetActiveScheme kexnt
+api-ms-win-power-setting-l1-1-0 PowerReadACValue kexnt
+api-ms-win-power-setting-l1-1-0 PowerReadDCValue kexnt
+api-ms-win-power-setting-l1-1-0 PowerReadACValueIndex kexnt
+api-ms-win-power-setting-l1-1-0 PowerReadDCValueIndex kexnt
+api-ms-win-power-setting-l1-1-0 PowerRegisterSuspendResumeNotification kexnt
+api-ms-win-power-setting-l1-1-0 PowerUnregisterSuspendResumeNotification kexnt
+#dep api-ms-win-shcore-scaling-l1-1-1 kexnt GetDpiForMonitor
+api-ms-win-shcore-scaling-l1-1-1 GetDpiForMonitor kexnt
+api-ms-win-shcore-scaling-l1-1-1 GetScaleFactorForMonitor kexnt
+api-ms-win-shcore-scaling-l1-1-1 SetProcessDpiAwareness kexnt
+api-ms-win-shcore-scaling-l1-1-1 GetProcessDpiAwareness kexnt
+# ---- Windows 10 DWrite.dll / TextShaping.dll (genuine drop-ins, 2026-11-02)
+#dep api-ms-win-core-libraryloader-l1-2-0 kernel32 GetModuleHandleW
+api-ms-win-core-libraryloader-l1-2-0 DisableThreadLibraryCalls kernel32
+api-ms-win-core-libraryloader-l1-2-0 FindResourceExW kernel32
+api-ms-win-core-libraryloader-l1-2-0 FreeLibrary kernel32
+api-ms-win-core-libraryloader-l1-2-0 FreeLibraryAndExitThread kernel32
+api-ms-win-core-libraryloader-l1-2-0 FreeResource kernel32
+api-ms-win-core-libraryloader-l1-2-0 GetModuleFileNameA kernel32
+api-ms-win-core-libraryloader-l1-2-0 GetModuleFileNameW kernel32
+api-ms-win-core-libraryloader-l1-2-0 GetModuleHandleA kernel32
+api-ms-win-core-libraryloader-l1-2-0 GetModuleHandleExA kernel32
+api-ms-win-core-libraryloader-l1-2-0 GetModuleHandleExW kernel32
+api-ms-win-core-libraryloader-l1-2-0 GetModuleHandleW kernel32
+api-ms-win-core-libraryloader-l1-2-0 GetProcAddress kernel32
+api-ms-win-core-libraryloader-l1-2-0 LoadLibraryExA kexnt
+api-ms-win-core-libraryloader-l1-2-0 LoadLibraryExW kexnt
+api-ms-win-core-libraryloader-l1-2-0 LoadResource kernel32
+api-ms-win-core-libraryloader-l1-2-0 LoadStringW user32
+api-ms-win-core-libraryloader-l1-2-0 LockResource kernel32
+api-ms-win-core-libraryloader-l1-2-0 SizeofResource kernel32
+#dep ext-ms-win-gdi-draw-l1-1-0 gdi32 MoveToEx
+ext-ms-win-gdi-draw-l1-1-0 CreateDIBSection gdi32
+ext-ms-win-gdi-draw-l1-1-0 GetWorldTransform gdi32
+ext-ms-win-gdi-draw-l1-1-0 LineTo gdi32
+ext-ms-win-gdi-draw-l1-1-0 MoveToEx gdi32
+ext-ms-win-gdi-draw-l1-1-0 PolyBezierTo gdi32
+ext-ms-win-gdi-draw-l1-1-0 SetGraphicsMode gdi32
+ext-ms-win-gdi-draw-l1-1-0 SetWorldTransform gdi32
+ext-ms-win-gdi-draw-l1-1-0 BitBlt gdi32
+ext-ms-win-gdi-draw-l1-1-0 PatBlt gdi32
+ext-ms-win-gdi-draw-l1-1-0 SetBkMode gdi32
+ext-ms-win-gdi-draw-l1-1-0 SetBkColor gdi32
+ext-ms-win-gdi-draw-l1-1-0 SetTextColor gdi32
+#dep ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 user32 GetSystemMetrics
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 DisplayConfigGetDeviceInfo kexnt
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 GetDisplayConfigBufferSizes kexnt
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 QueryDisplayConfig kexnt
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 EnumDisplayDevicesW user32
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 GetMonitorInfoW user32
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 SystemParametersInfoW user32
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 SystemParametersInfoA user32
+ext-ms-win-rtcore-ntuser-sysparams-l1-1-0 GetSystemMetrics user32
+#dep ext-ms-win-gdi-path-l1-1-0 gdi32 BeginPath
+ext-ms-win-gdi-path-l1-1-0 BeginPath gdi32
+ext-ms-win-gdi-path-l1-1-0 CloseFigure gdi32
+ext-ms-win-gdi-path-l1-1-0 EndPath gdi32
+ext-ms-win-gdi-path-l1-1-0 FillPath gdi32
+ext-ms-win-gdi-path-l1-1-0 PathToRegion gdi32
+#dep api-ms-win-core-threadpool-l1-2-0 kexnt CreateThreadpoolTimer
+api-ms-win-core-threadpool-l1-2-0 CreateThreadpoolTimer kexnt
+api-ms-win-core-threadpool-l1-2-0 SetThreadpoolTimer kexnt
+api-ms-win-core-threadpool-l1-2-0 IsThreadpoolTimerSet kexnt
+api-ms-win-core-threadpool-l1-2-0 WaitForThreadpoolTimerCallbacks kexnt
+api-ms-win-core-threadpool-l1-2-0 CloseThreadpoolTimer kexnt
+#dep api-ms-win-eventing-provider-l1-1-0 kexnt EventRegister
+api-ms-win-eventing-provider-l1-1-0 EventRegister kexnt
+api-ms-win-eventing-provider-l1-1-0 EventSetInformation kexnt
+api-ms-win-eventing-provider-l1-1-0 EventUnregister kexnt
+api-ms-win-eventing-provider-l1-1-0 EventWriteTransfer kexnt
+#dep ext-ms-win-gdi-dc-l1-2-0 gdi32 SelectObject
+ext-ms-win-gdi-dc-l1-2-0 GetCurrentObject gdi32
+ext-ms-win-gdi-dc-l1-2-0 GetStockObject gdi32
+ext-ms-win-gdi-dc-l1-2-0 SelectObject gdi32
+ext-ms-win-gdi-dc-l1-2-0 SetDCBrushColor gdi32
+#dep ext-ms-win-gdi-font-l1-1-0 kexnt GetFontFileData
+ext-ms-win-gdi-font-l1-1-0 GetFontData gdi32
+ext-ms-win-gdi-font-l1-1-0 GetFontFileData kexnt
+ext-ms-win-gdi-font-l1-1-0 GetFontFileInfo kexnt
+ext-ms-win-gdi-font-l1-1-0 GetFontRealizationInfo kexnt
+#dep ext-ms-win-rtcore-gdi-rgn-l1-1-0 gdi32 GetRgnBox
+ext-ms-win-rtcore-gdi-rgn-l1-1-0 FillRgn gdi32
+ext-ms-win-rtcore-gdi-rgn-l1-1-0 GetRegionData gdi32
+ext-ms-win-rtcore-gdi-rgn-l1-1-0 GetRgnBox gdi32
+ext-ms-win-rtcore-gdi-rgn-l1-1-0 SetPolyFillMode gdi32
+ext-ms-win-rtcore-gdi-rgn-l1-1-0 CreateRectRgn gdi32
+ext-ms-win-rtcore-gdi-rgn-l1-1-0 CombineRgn gdi32
+#dep ext-ms-win-gdi-dc-create-l1-1-0 gdi32 CreateCompatibleDC
+ext-ms-win-gdi-dc-create-l1-1-0 CreateCompatibleDC gdi32
+ext-ms-win-gdi-dc-create-l1-1-0 DeleteDC gdi32
+#dep api-ms-win-core-localization-l1-2-2 kexnt LCIDToLocaleName
+api-ms-win-core-localization-l1-2-2 LCIDToLocaleName kexnt
+api-ms-win-core-localization-l1-2-2 LocaleNameToLCID kexnt
+api-ms-win-core-localization-l1-2-2 GetUserDefaultLocaleName kexnt
+api-ms-win-core-localization-l1-2-2 GetLocaleInfoEx kexnt
+#dep api-ms-win-core-windowserrorreporting-l1-1-0 kexnt WerRegisterMemoryBlock
+api-ms-win-core-windowserrorreporting-l1-1-0 WerRegisterMemoryBlock kexnt
+api-ms-win-core-windowserrorreporting-l1-1-0 WerUnregisterMemoryBlock kexnt
+#dep api-ms-win-core-delayload-l1-1-1 kexnt ResolveDelayLoadedAPI
+api-ms-win-core-delayload-l1-1-1 ResolveDelayLoadedAPI kexnt
+api-ms-win-core-delayload-l1-1-1 DelayLoadFailureHook kernel32
+#dep ext-ms-win-rtcore-gdi-devcaps-l1-1-0 gdi32 GetDeviceCaps
+ext-ms-win-rtcore-gdi-devcaps-l1-1-0 GetDeviceCaps gdi32
+#dep ext-ms-win-rtcore-gdi-object-l1-1-0 gdi32 DeleteObject
+ext-ms-win-rtcore-gdi-object-l1-1-0 DeleteObject gdi32
+ext-ms-win-rtcore-gdi-object-l1-1-0 GetObjectW gdi32
+api-ms-win-core-synch-l1-1-0 CreateMutexExA kexnt
+api-ms-win-core-synch-l1-1-0 CreateMutexExW kexnt
+api-ms-win-core-synch-l1-1-0 CreateSemaphoreExW kexnt
+api-ms-win-core-synch-l1-1-0 CreateEventExA kexnt
+api-ms-win-core-synch-l1-1-0 CreateEventExW kexnt
+api-ms-win-core-registry-l1-1-0 RegGetValueW kexnt
+api-ms-win-core-registry-l1-1-0 RegGetValueA kexnt
+api-ms-win-service-management-l2-1-0 NotifyServiceStatusChangeW kexnt
+#dep api-ms-win-security-base-l1-1-0 kexnt CreateWellKnownSid
+# build 131: Firefox 160 (firefox.exe / xul.dll / mozglue.dll import these sets)
+#dep api-ms-win-core-version-l1-1-1 version VerQueryValueW
+api-ms-win-core-version-l1-1-1 GetFileVersionInfoSizeW version
+api-ms-win-core-version-l1-1-1 GetFileVersionInfoW version
+api-ms-win-core-version-l1-1-1 VerQueryValueW version
+api-ms-win-core-version-l1-1-1 VerFindFileW version
+#dep api-ms-win-core-psapi-l1-1-0 kexnt K32EnumProcessModules
+api-ms-win-core-psapi-l1-1-0 K32EnumProcessModules kexnt
+api-ms-win-core-psapi-l1-1-0 K32EnumProcessModulesEx kexnt
+api-ms-win-core-psapi-l1-1-0 K32GetModuleInformation kexnt
+api-ms-win-core-psapi-l1-1-0 K32GetModuleFileNameExW kexnt
+api-ms-win-core-psapi-l1-1-0 K32GetModuleBaseNameW kexnt
+api-ms-win-core-psapi-l1-1-0 K32GetMappedFileNameW kexnt
+api-ms-win-core-psapi-l1-1-0 K32GetProcessImageFileNameW kexnt
+#dep api-ms-win-core-libraryloader-l1-2-1 kernel32 LoadLibraryW
+api-ms-win-core-libraryloader-l1-2-1 LoadLibraryW kernel32
+api-ms-win-core-libraryloader-l1-2-1 LoadLibraryExW kernel32
+api-ms-win-core-libraryloader-l1-2-1 GetModuleHandleW kernel32
+api-ms-win-core-libraryloader-l1-2-1 GetProcAddress kernel32
+api-ms-win-core-libraryloader-l1-2-1 FreeLibrary kernel32
+api-ms-win-core-libraryloader-l1-2-1 GetModuleFileNameW kernel32
+#dep api-ms-win-core-heap-l2-1-0 kernel32 LocalFree
+api-ms-win-core-heap-l2-1-0 LocalFree kernel32
+api-ms-win-core-heap-l2-1-0 LocalAlloc kernel32
+api-ms-win-core-heap-l2-1-0 LocalReAlloc kernel32
+api-ms-win-core-heap-l2-1-0 GlobalAlloc kernel32
+api-ms-win-core-heap-l2-1-0 GlobalFree kernel32
+#dep api-ms-win-core-rtlsupport-l1-2-0 kexnt RtlCompareMemory
+api-ms-win-core-rtlsupport-l1-2-0 RtlCompareMemory kexnt
+api-ms-win-core-rtlsupport-l1-2-0 RtlCaptureContext kexnt
+#dep api-ms-win-core-path-l1-1-0 kexnt PathCchCanonicalize
+api-ms-win-core-path-l1-1-0 PathCchCanonicalize kexnt
+api-ms-win-core-path-l1-1-0 PathCchCanonicalizeEx kexnt
+api-ms-win-core-path-l1-1-0 PathCchCombine kexnt
+api-ms-win-core-path-l1-1-0 PathCchCombineEx kexnt
+api-ms-win-core-path-l1-1-0 PathCchAppend kexnt
+api-ms-win-core-path-l1-1-0 PathCchAddBackslash kexnt
+api-ms-win-core-path-l1-1-0 PathCchRemoveFileSpec kexnt
+api-ms-win-core-synch-l1-1-0 SetWaitableTimerEx kexnt
+api-ms-win-core-synch-l1-1-0 CreateWaitableTimerExA kexnt

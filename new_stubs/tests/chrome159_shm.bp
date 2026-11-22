@@ -1,0 +1,30 @@
+# KEXDBG breakpoints for Chromium 159.0.8134.0 chrome_elf.dll (loaded at 01C20000)
+# shared memory: base PlatformSharedMemoryRegion::Create / Take / mapper, crash user-stream writer
+1c3e916 ctor.before-Create
+1c3e950 ctor.IsValid-ret(al)
+1c71ac7 Create.InitializeAcl-ret
+1c71ad7 Create.InitSD-ret
+1c71aee Create.SetSDDacl-ret
+1c71b07 Create.before-CFM(ebx=size)
+1c71b2a Create.CFM-hooked-ret
+1c71bc5 Create.CFM-ret
+1c71bf2 Create.Dup-ret(out@esi+74) esi+74 4
+1c71bfa Create.GLE-after-dup
+1c71c4f Create.GLE-check(eax==b7?)
+1c71c5a FAIL.already-exists
+1c71d23 FAIL.create-file-mapping
+1c71d49 FAIL.duplicate-handle
+1c71b37 FAIL.init-acl
+1c71b60 FAIL.init-sd
+1c71b89 FAIL.set-sd
+1c71d9b Create.OK
+1c718d3 Take.Dup-ret
+1c71dd3 Create.after-Take
+1ccca25 Map.MapViewOfFile-ret
+1ccca3f Map.MapViewOfFile2-ret
+1ccca60 Map.VirtualQuery-ret(mbi@ebp-2c) ebp-2c 1c
+1ccca93 FAIL.MapViewOfFile
+# delay-load helper (__delayLoadHelper2 at 0x1cf5678): which InitializeAcl does chrome_elf get?
+1cf579d dl.LoadLibraryExA-ret(dll@ebp-2c) @ebp-2c 20
+1cf585b dl.bound-IAT-used
+1cf5872 dl.GetProcAddress-ret(name@ebp-24) @ebp-24 20

@@ -1,0 +1,8 @@
+REGEDIT4
+
+; Chromium: turn off its third-party DLL blocking (chrome_elf). It cannot hook Windows 98 (no NtMapViewOfSection
+; in NTDLL) and stops with service_resolver.cc:27 on every other start. Chromium's own setting: state 0 = disabled.
+[HKEY_CURRENT_USER\Software\Chromium\BLBeacon]
+"state"=dword:00000000
+"failed_count"=dword:00000000
+

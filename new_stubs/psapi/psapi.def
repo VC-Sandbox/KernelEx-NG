@@ -1,0 +1,27 @@
+LIBRARY psapi.dll
+EXPORTS
+	GetProcessFlags=GetProcessFlags@4
+	GetProcessId=_GetProcessId@4
+	EnumDeviceDrivers
+	EnumProcesses=EnumProcesses@12
+	EnumProcessModules=EnumProcessModules@16
+	EnumProcessModulesEx=EnumProcessModulesEx@20
+	GetDeviceDriverFileNameA
+	GetDeviceDriverFileNameW
+	GetModuleBaseNameA=GetModuleBaseNameA@16
+	GetModuleBaseNameW=GetModuleBaseNameW@16
+	GetModuleFileNameExA=GetModuleFileNameExA@16
+	GetModuleFileNameExW=GetModuleFileNameExW@16
+	GetModuleInformation=GetModuleInformation@16
+	GetMappedFileNameA=GetMappedFileNameA@16
+	GetMappedFileNameW=GetMappedFileNameW@16
+	GetPerformanceInfo=GetPerformanceInfo@8
+	GetProcessImageFileNameA=GetProcessImageFileNameA@12
+	GetProcessImageFileNameW=GetProcessImageFileNameW@12
+	GetProcessMemoryInfo=GetProcessMemoryInfo@12
+	QueryWorkingSet=QueryWorkingSet@12
+	QueryWorkingSetEx=QueryWorkingSetEx@12
+	InitializeProcessForWsWatch=InitializeProcessForWsWatch@4
+	EnumPageFilesA=EnumPageFilesA@8
+	EnumPageFilesW=EnumPageFilesW@8
+	EmptyWorkingSet=EmptyWorkingSet@4

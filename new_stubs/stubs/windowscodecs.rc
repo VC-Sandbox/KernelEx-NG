@@ -1,0 +1,33 @@
+/* windowscodecs.rc - version resource of KernelEx-NG's WIC stub (build 132).
+ * The .NET Framework 4.0 packages look for windowscodecs.dll in SYSTEM with a file version of at least
+ * 6.0.5840.16387 (netfx_Core_x86.msi: AppSearch DetectWIC -> CA_Block_WIC_NotPresent_x86 "You must install the
+ * 32-bit Windows Imaging Component (WIC)"). .NET itself does not use WIC (only WPF imaging does), so the stub
+ * states the WIC API level of the Windows XP release; its functions still return E_NOTIMPL. */
+#include <winver.h>
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 6,0,5840,16388
+PRODUCTVERSION 6,0,5840,16388
+FILEFLAGSMASK 0x3F
+FILEFLAGS 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "KernelEx-NG"
+            VALUE "FileDescription", "KernelEx-NG Windows Imaging Component stub (no imaging - functions return E_NOTIMPL)"
+            VALUE "FileVersion", "6.0.5840.16388"
+            VALUE "InternalName", "windowscodecs"
+            VALUE "OriginalFilename", "windowscodecs.dll"
+            VALUE "ProductName", "KernelEx-NG"
+            VALUE "ProductVersion", "6.0.5840.16388"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

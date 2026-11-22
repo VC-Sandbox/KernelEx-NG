@@ -1,0 +1,5 @@
+REGEDIT4
+
+[HKEY_LOCAL_MACHINE\Software\KernelEx\KexNG]
+"Profile"=dword:00000001
+

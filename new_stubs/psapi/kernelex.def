@@ -1,0 +1,3 @@
+LIBRARY KernelEx.dll
+EXPORTS
+	kexGetProcAddress
