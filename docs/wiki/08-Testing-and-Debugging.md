@@ -106,5 +106,5 @@ Safety rules the harness follows:
 
 1. Raise `KEXNG_BUILD`.
 2. Full kextest in the VM: it must reach the end with no unexplained failures.
-3. Update the notes (`new_stubs/ARCHITECTURE.md`, `docs/wiki/`) and the CD's `README_ISO.TXT` test steps.
+3. Update the notes (`new_stubs/ARCHITECTURE.md`, `docs/wiki/`) and the CD readme `README_ISO.TXT` if install steps changed.
 4. Build the ISO and a source archive.
