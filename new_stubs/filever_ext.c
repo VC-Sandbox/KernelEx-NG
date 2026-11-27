@@ -34,7 +34,30 @@ static int is_core(const void *path, int wide)
     }
     base[n] = 0;
     for (k = 0; k < 3; k++) if (!lstrcmpA(base, names[k])) return 1;
+    if (!lstrcmpA(base, "msi")) {                           /* build 132: only the system copy (a bare name finds it too) */
+        char sys[MAX_PATH], a[MAX_PATH]; int sl;
+        if (!start) return 2;
+        if (!GetSystemDirectoryA(sys, MAX_PATH)) return 0;
+        if (wide) { if (!WideCharToMultiByte(CP_ACP, 0, (const WCHAR *)path, -1, a, MAX_PATH, NULL, NULL)) return 0; }
+        else lstrcpynA(a, (const char *)path, MAX_PATH);
+        sl = lstrlenA(sys);
+        if (start - 1 == sl && CompareStringA(LOCALE_SYSTEM_DEFAULT, NORM_IGNORECASE, a, sl, sys, sl) == CSTR_EQUAL) return 2;
+    }
     return 0;
+}
+
+/* build 132: Windows Installer. Setups check the version of SYSTEM\msi.dll before they use MSI 3 (measured: the .NET
+ * Framework 3.5 SP1 setup, dd_depcheck log: "FileVersionCheck ... C:\WINDOWS\SYSTEM\msi.dll. Version on user's
+ * machine: 2.0.2600.2. Version to be installed: 3.1.4000.2435" -> blocking component "Microsoft Windows Installer 3.1").
+ * Windows 98 has MSI 2.0; for modern programs kexnt's msicompat_ext.c / installer_ext.c supply what MSI 3.x adds
+ * (version-4 packages, the MSI 3 functions and ordinals). Such programs see the version Windows XP SP3 ships,
+ * 3.1.4001.5512, in VS_FIXEDFILEINFO; Windows 98 programs still see 2.0. */
+static void patch_msi(void *data, DWORD len)
+{
+    DWORD i, *d = (DWORD *)data;
+    if (!data || len < 64) return;
+    for (i = 0; i + 13 <= len / 4; i++)
+        if (d[i] == 0xFEEF04BDUL) { d[i + 2] = d[i + 4] = 0x00030001UL; d[i + 3] = d[i + 5] = (4001UL << 16) | 5512UL; return; }
 }
 
 static void patch(void *data, DWORD len)
@@ -57,7 +80,7 @@ static BOOL gfvi(const char *fn, T_GFVI *cache, const void *name, DWORD h, DWORD
     if (!*cache) *cache = (T_GFVI)(void *)kex_prev_impl("VERSION.DLL", fn);
     if (!*cache) { SetLastError(ERROR_CALL_NOT_IMPLEMENTED); return FALSE; }
     r = (*cache)(name, h, len, data);
-    if (r && is_core(name, wide)) patch(data, len);
+    if (r) { int c = is_core(name, wide); if (c == 1) patch(data, len); else if (c == 2) patch_msi(data, len); }
     return r;
 }
 static T_GFVI c_a, c_w;
@@ -74,7 +97,7 @@ static BOOL gfvix(const char *fn, const char *plain, T_GFVIX *cx, T_GFVI *cp, DW
     if (!*cx) *cx = (T_GFVIX)(void *)kex_prev_impl("VERSION.DLL", fn);
     if (!*cx) return gfvi(plain, cp, name, h, len, data, wide);
     r = (*cx)(fl, name, h, len, data);
-    if (r && is_core(name, wide)) patch(data, len);
+    if (r) { int c = is_core(name, wide); if (c == 1) patch(data, len); else if (c == 2) patch_msi(data, len); }
     return r;
 }
 static T_GFVIX cx_a, cx_w;

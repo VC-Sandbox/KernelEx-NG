@@ -2163,3 +2163,9 @@ LsaClose ADVAPI32
 LsaFreeMemory ADVAPI32
 LsaQueryInformationPolicy ADVAPI32
 LsaNtStatusToWinError ADVAPI32
+SetupOpenInfFileW SETUPAPI
+SetupCloseInfFile SETUPAPI
+SetupFindFirstLineW SETUPAPI
+SetupGetLineTextW SETUPAPI
+SetupGetStringFieldW SETUPAPI
+SetupIterateCabinetW SETUPAPI

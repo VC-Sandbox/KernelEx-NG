@@ -450,6 +450,25 @@ static void loader_boot(BOOL add)
     RegCloseKey(k);
 }
 
+/* build 132: the service-pack level as Windows NT records it, HKLM\System\CurrentControlSet\Control\Windows
+ * "CSDVersion" (DWORD, 0x300 on Windows XP SP3). Setups read it instead of asking GetVersionEx (measured: the .NET
+ * Framework 3.5 SP1 setup, dd_depcheck log: "RegDwordCheck ... Control\Windows; Value: CSDVersion. Version on user's
+ * machine: 0. Version to be installed: 512" -> blocking component "Windows XP Service Pack 2 Update Information").
+ * Windows 98 has no such value and none of its programs reads it. Written only when missing (the level of the
+ * Windows XP SP3 profile); removed again by KEXSETUP /u when it still holds that value. */
+static void nt_csd(BOOL add)
+{
+    HKEY k; DWORD v = 0, t, n = sizeof(v);
+    if (RegCreateKeyA(HKEY_LOCAL_MACHINE, "System\\CurrentControlSet\\Control\\Windows", &k) != ERROR_SUCCESS) { ERR("cannot open Control\\Windows\n"); return; }
+    if (RegQueryValueExA(k, "CSDVersion", NULL, &t, (BYTE *)&v, &n) != ERROR_SUCCESS) t = 0;
+    if (add && t != REG_DWORD) {
+        v = 0x300;
+        if (RegSetValueExA(k, "CSDVersion", 0, REG_DWORD, (const BYTE *)&v, sizeof(v)) == ERROR_SUCCESS) LOG("  registry: Control\\Windows CSDVersion = 0x300 (service pack 3, as Windows XP SP3)\n");
+        else ERR("cannot write Control\\Windows\\CSDVersion\n");
+    } else if (!add && t == REG_DWORD && v == 0x300 && RegDeleteValueA(k, "CSDVersion") == ERROR_SUCCESS) LOG("  registry: Control\\Windows CSDVersion removed\n");
+    RegCloseKey(k);
+}
+
 /* ---- version profiles (KEXVER.DLL) in core.ini, the KernelEx way: [ApiConfigurations] N=NAME + sections ---- */
 static const struct { const char *name, *desc; } g_profiles[] = {   /* index = kexver.<N> */
     { "WIN7",       "Windows 7 SP1" },
@@ -914,7 +933,7 @@ int main(int argc, char **argv)
         join(path, g_kexdir, "KEXNT.DLL");
         install_file(src, path);
         if (g_err) goto done;                 /* don't point core.ini at a DLL that isn't there */
-        known_dll(TRUE); xul_rule(TRUE); loader_boot(TRUE);
+        known_dll(TRUE); xul_rule(TRUE); loader_boot(TRUE); nt_csd(TRUE);
         read_old_list();
         apisets_install();
         stubs_install();
@@ -978,7 +997,7 @@ int main(int argc, char **argv)
         remove_file(path);
         join(path, g_kexdir, "KEXALIAS.VXD");
         if (GetFileAttributesA(path) != 0xFFFFFFFF) remove_file(path);
-        known_dll(FALSE); xul_rule(FALSE); root_cert(FALSE); loader_boot(FALSE);
+        known_dll(FALSE); xul_rule(FALSE); root_cert(FALSE); loader_boot(FALSE); nt_csd(FALSE);
         audio_register(FALSE, NULL);
         join(path, g_sysdir, "KEXAUDIO.DLL");
         if (GetFileAttributesA(path) != 0xFFFFFFFF) remove_file(path);
