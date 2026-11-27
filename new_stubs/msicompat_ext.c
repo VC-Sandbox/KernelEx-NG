@@ -310,6 +310,33 @@ static void xp_launch_conditions(const char *path)
 }
 
 
+static int has(const char *s, const char *w);
+/* build 132: does the package have a LaunchCondition that tests VersionNT/ServicePackLevel/WindowsBuild? Measured
+ * (.NET Framework 3.5 SP1 setup -> netfx20a_x86.msi, a package for Windows Installer 2.0 that needed no other
+ * conversion): LaunchCondition "Microsoft .NET Framework 2.0 Service Pack 2 requires Windows 2000 SP3 or later" -> 1603,
+ * because Windows Installer 2.0 on Windows 98 leaves VersionNT empty. Such a package now also gets the converted copy,
+ * whose LaunchCondition rows carry the values Windows XP's installer sets (xp_launch_conditions). */
+static int nt_launch_conditions(const char *path)
+{
+#define MP(t, n) t n = (t)(void *)kex_sysproc("MSI.DLL", #n)
+    MP(T_MODA, MsiOpenDatabaseA); MP(T_MOVA, MsiDatabaseOpenViewA); MP(T_MVE, MsiViewExecute); MP(T_MVF, MsiViewFetch);
+    MP(T_MRGS, MsiRecordGetStringA); MP(T_MCH, MsiCloseHandle);
+#undef MP
+    DWORD db = 0, v = 0, rec = 0; int found = 0; char cond[1024], nc[1024];
+    if (!MsiOpenDatabaseA || !MsiDatabaseOpenViewA || !MsiViewExecute || !MsiViewFetch || !MsiRecordGetStringA || !MsiCloseHandle) return 0;
+    if (MsiOpenDatabaseA(path, (LPCSTR)(ULONG_PTR)0 /* MSIDBOPEN_READONLY */, &db)) return 0;
+    if (!MsiDatabaseOpenViewA(db, "SELECT `Condition` FROM `LaunchCondition`", &v) && !MsiViewExecute(v, 0)) {
+        while (!found && !MsiViewFetch(v, &rec)) {
+            DWORD a = sizeof(cond);
+            if (!MsiRecordGetStringA(rec, 1, cond, &a) && has(cond, "VersionNT") && xp_cond(cond, nc, sizeof(nc))) found = 1;
+            MsiCloseHandle(rec);
+        }
+    }
+    if (v) MsiCloseHandle(v);
+    MsiCloseHandle(db);
+    return found;
+}
+
 /* ---- Component conditions of NT-only packages (build 132) ----
  * Measured (.NET Framework 4.0, netfx_Core_x86.msi, verbose log): the loader shim mscoree.dll (and its MUI resources)
  * have the component condition "VersionNT < 600" - XP/2003 get the shim from the package, Vista+ have it in Windows.
@@ -439,6 +466,7 @@ static BOOL convert(const char *src, char *tmp_out, int exact)
     why = needs_conversion(&c, &is_db);
     if (exact) { if (why != 1) why = 0; is_db = 0; }
     if (!why && !exact && is_db == 1 && sys32_rows(src, 0)) why = 3;   /* downlevel "system32" folders (build 126) */
+    if (!why && !exact && is_db == 1 && nt_launch_conditions(src)) why = 4;   /* NT-only launch conditions (build 132) */
     if (!why && !exact) msilog("no conversion needed", src, (DWORD)is_db | (c.ss << 8));
     if (!why) { cfb_close(&c); return FALSE; }
     /* beside the original, so external cabinets (Media table) are found and Windows Installer's cached source
@@ -469,7 +497,7 @@ static BOOL convert(const char *src, char *tmp_out, int exact)
     }
     msilog(ok ? (exact ? "converted (exact copy for the signature check)" : "converted") : "conversion FAILED", src, (DWORD)why | (c.ss << 8) | ((DWORD)g_fixed << 24));
     msilog("  ->", tmp_out, size);
-    kex_crashnote(ok ? "MSI: package for Windows Installer 3+ opened through a converted copy (reason 1 = 4 KB-sector file, 2 = asks > 2.0; sector size; summary fixes)"
+    kex_crashnote(ok ? "MSI: package for Windows Installer 3+ opened through a converted copy (reason 1 = 4 KB-sector file, 2 = asks > 2.0, 3 = system32 rows, 4 = NT launch conditions; sector size; summary fixes)"
                      : "MSI: converting a package for Windows Installer 3+ FAILED (reason, sector size)",
                   (DWORD)why, c.ss, (DWORD)g_fixed, 0);
     cfb_close(&c);

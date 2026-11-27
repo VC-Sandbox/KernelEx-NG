@@ -60,6 +60,23 @@ static WCHAR *load(const char *path, DWORD *chars)
     CloseHandle(f);
     return w;
 }
+/* build 132: one parsed file kept (under lock) while its size and last write time stay the same. The .NET 3.5 setup
+ * reads its 76 KB setup.sdb with thousands of GetPrivateProfileStringW calls; loading it again for every call kept the
+ * setup on "loading installation components" for minutes. Writes through kexnt drop the copy. */
+static struct { char path[MAX_PATH]; FILETIME wt; DWORD size, chars; WCHAR *text; } g_cache;
+static void cache_drop(void) { if (g_cache.text) HeapFree(GetProcessHeap(), 0, g_cache.text); g_cache.text = NULL; g_cache.path[0] = 0; }
+static WCHAR *cached(const char *path, DWORD *chars)      /* call under lock(); do not free the result */
+{
+    WIN32_FILE_ATTRIBUTE_DATA fa; WCHAR *t;
+    if (!GetFileAttributesExA(path, GetFileExInfoStandard, &fa)) { cache_drop(); return NULL; }
+    if (g_cache.text && !lstrcmpiA(g_cache.path, path) && g_cache.size == fa.nFileSizeLow &&
+        !CompareFileTime(&g_cache.wt, &fa.ftLastWriteTime)) { *chars = g_cache.chars; return g_cache.text; }
+    cache_drop();
+    if (!(t = load(path, chars))) return NULL;
+    lstrcpynA(g_cache.path, path, MAX_PATH); g_cache.wt = fa.ftLastWriteTime; g_cache.size = fa.nFileSizeLow;
+    g_cache.chars = *chars; g_cache.text = t;
+    return t;
+}
 static BOOL is_uini(LPCWSTR file, char *path)
 {
     BYTE m[2]; DWORD got = 0; HANDLE f;
@@ -198,10 +215,9 @@ DWORD KEXAPI kex_uini_GetPrivateProfileStringW(LPCWSTR app, LPCWSTR key, LPCWSTR
     char path[MAX_PATH]; WCHAR *t; DWORD n, r;
     if (!buf || !size || !file || !is_uini(file, path)) return (DWORD)-2;          /* not ours */
     lock();
-    t = load(path, &n);
+    t = cached(path, &n);
     r = t ? uini_get(t, n, app, key, def, buf, size) : (DWORD)-2;
     unlock();
-    if (t) HeapFree(GetProcessHeap(), 0, t);
     if (r != (DWORD)-2) SetLastError(ERROR_SUCCESS);
     return r;
 }
@@ -218,7 +234,7 @@ DWORD KEXAPI kex_GetPrivateProfileSectionW(LPCWSTR app, LPWSTR buf, DWORD size, 
     static T_GPPSW prev; char path[MAX_PATH]; WCHAR *t; DWORD n, pos = 0;
     if (app && buf && size && file && is_uini(file, path)) {
         lock();
-        t = load(path, &n);
+        t = cached(path, &n);
         if (t) {
             const WCHAR *p = t, *end = t + n; LINE l; BOOL in = FALSE, cut = FALSE;
             while (p < end && !cut) {
@@ -242,7 +258,6 @@ DWORD KEXAPI kex_GetPrivateProfileSectionW(LPCWSTR app, LPWSTR buf, DWORD size, 
             }
             if (cut) { if (size >= 2) { buf[size - 2] = 0; buf[size - 1] = 0; } pos = size >= 2 ? size - 2 : 0; }
             else { buf[pos] = 0; if (pos == 0 && size > 1) buf[1] = 0; }
-            HeapFree(GetProcessHeap(), 0, t);
             unlock();
             SetLastError(ERROR_SUCCESS);
             return pos;
@@ -280,7 +295,7 @@ BOOL KEXAPI kex_WritePrivateProfileStringW(LPCWSTR app, LPCWSTR key, LPCWSTR val
         is_uini(file, path)) {
         WCHAR *t; DWORD n; BOOL ok = FALSE;
         lock();
-        if ((t = load(path, &n))) { ok = uini_put(path, t, n, app, key, val); HeapFree(GetProcessHeap(), 0, t); }
+        cache_drop(); if ((t = load(path, &n))) { ok = uini_put(path, t, n, app, key, val); HeapFree(GetProcessHeap(), 0, t); }
         unlock();
         if (!ok) SetLastError(ERROR_ACCESS_DENIED);
         return ok;
