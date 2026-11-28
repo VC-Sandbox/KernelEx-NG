@@ -167,7 +167,7 @@ static BOOL merge(const char *pkg, char patches[][MAX_PATH], int np, char *out)
     if (!GetTempPathA(MAX_PATH, tdir) || !GetTempFileNameA(tdir, "KXT", 0, tmp)) return FALSE;
     if ((e = M.odb(out, (LPCSTR)(ULONG_PTR)1 /* TRANSACT */, &db))) { kex_crashnote("MSI 3 patches: cannot open the package copy (error)", e, 0, 0, 0); return FALSE; }
     for (i = 0; i < np; i++) {
-        char list[512], *p, *q; WCHAR wp[MAX_PATH]; IStorage *stg = NULL; MH pdb, v, r;
+        char list[512], *p, *q; WCHAR wp[MAX_PATH]; IStorage *stg = NULL;
         if (!transforms(patches[i], list, sizeof(list))) continue;
         MultiByteToWideChar(CP_ACP, 0, patches[i], -1, wp, MAX_PATH);
         if (SUCCEEDED(M.sos(wp, NULL, STGM_READ | STGM_SHARE_DENY_WRITE, NULL, 0, &stg))) {
@@ -177,33 +177,49 @@ static BOOL merge(const char *pkg, char patches[][MAX_PATH], int np, char *out)
                 if (extract_transform(stg, p, tmp) >= 0) { e = M.at(db, tmp, 0x3F /* every validation error ignored */);
                     {   static LONG k; if (InterlockedIncrement(&k) <= 40) kex_crashnote("MSI 3 patches: transform applied to the merged package (patch #, result)", (DWORD)i, e, 0, 0); } }
             }
-            IStorage_Release(stg);
-        }
-        /* the patch's cabinet streams (names are MSI-encoded in the file: read them through the MSI API) */
-        if (!M.odb(patches[i], (LPCSTR)(ULONG_PTR)32 /* READONLY | PATCHFILE */, &pdb)) {
-            if (!M.ov(pdb, "SELECT `Name`, `Data` FROM `_Streams`", &v) && !M.ve(v, 0)) {
-                while (!M.vf(v, &r)) {
-                    char an[128]; DWORD n = sizeof(an); an[0] = 0; M.rgs(r, 1, an, &n);
-                    if (an[0] > ' ' && ncab < 16) {
-                        HANDLE f; char buf[32768]; DWORD got, put;
-                        lstrcpyA(cab, tdir); lstrcatA(cab, "kx98p"); cat_num(cab, ncab); lstrcatA(cab, ".cab");
-                        f = CreateFileA(cab, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
-                        if (f != INVALID_HANDLE_VALUE) {
-                            do { got = sizeof(buf); if (M.rrs(r, 2, buf, &got) || !got) break; WriteFile(f, buf, got, &put, NULL); } while (got);
-                            CloseHandle(f);
-                            {   MH ir = M.cr(2); char nn[64]; lstrcpyA(nn, "KX98P_CAB"); cat_num(nn, ncab);
-                                M.rss(ir, 1, nn); e = M.rsst(ir, 2, cab);
-                                if (!e) e = exec(db, "INSERT INTO `_Streams` (`Name`, `Data`) VALUES (?, ?)", ir);
-                                M.ch(ir);
-                                if (!e) lstrcpyA(cabs[ncab++], cab); else DeleteFileA(cab);
+            /* cabinet streams: enumerate the patch's IStorage directly, find streams with MSCF magic.
+             * MSI-encoded stream names can start with bytes <= 0x20, so do not filter by name; use the
+             * MSCF magic instead.  MSIDBOPEN_PATCHFILE (value 32) is a WI 3.0 addition: not reliable on
+             * Windows 98's MSI 2.0 and subject to MSI encoding ambiguity.  IStorage enumeration is not. */
+            {   IEnumSTATSTG *en = NULL;
+                if (SUCCEEDED(IStorage_EnumElements(stg, 0, NULL, 0, &en))) {
+                    STATSTG st; ULONG fetched;
+                    static FARPROC s_ctm;
+                    if (!s_ctm) s_ctm = kex_sysproc("OLE32.DLL", "CoTaskMemFree");
+                    while (ncab < 16 && IEnumSTATSTG_Next(en, 1, &st, &fetched) == S_OK && fetched) {
+                        if (st.type == STGTY_STREAM && st.pwcsName) {
+                            IStream *strm = NULL;
+                            if (SUCCEEDED(IStorage_OpenStream(stg, st.pwcsName, NULL, STGM_READ | STGM_SHARE_EXCLUSIVE, 0, &strm))) {
+                                char hdr[4]; ULONG got = 0; HRESULT hr2;
+                                hr2 = IStream_Read(strm, hdr, 4, &got);
+                                if (SUCCEEDED(hr2) && got == 4 && memcmp(hdr, "MSCF", 4) == 0) {
+                                    /* cabinet: seek back to start, then extract to a temp file */
+                                    LARGE_INTEGER zero; zero.QuadPart = 0;
+                                    if (SUCCEEDED(IStream_Seek(strm, zero, STREAM_SEEK_SET, NULL))) {
+                                        HANDLE f; char buf[32768]; DWORD put;
+                                        lstrcpyA(cab, tdir); lstrcatA(cab, "kx98p"); cat_num(cab, ncab); lstrcatA(cab, ".cab");
+                                        f = CreateFileA(cab, GENERIC_WRITE, 0, NULL, CREATE_ALWAYS, 0, NULL);
+                                        if (f != INVALID_HANDLE_VALUE) {
+                                            do { got = 0; hr2 = IStream_Read(strm, buf, sizeof(buf), &got); if (got) WriteFile(f, buf, got, &put, NULL); } while (got == sizeof(buf) && SUCCEEDED(hr2));
+                                            CloseHandle(f);
+                                            {   MH ir = M.cr(2); char nn[64]; lstrcpyA(nn, "KX98P_CAB"); cat_num(nn, ncab);
+                                                M.rss(ir, 1, nn); e = M.rsst(ir, 2, cab);
+                                                if (!e) e = exec(db, "INSERT INTO `_Streams` (`Name`, `Data`) VALUES (?, ?)", ir);
+                                                M.ch(ir);
+                                                kex_crashnote("MSI 3 patches: cabinet from IStorage (patch #, ncab, insert result, -)", (DWORD)i, (DWORD)ncab, e, 0);
+                                                if (!e) lstrcpyA(cabs[ncab++], cab); else DeleteFileA(cab); }
+                                        }
+                                    }
+                                }
+                                IStream_Release(strm);
                             }
+                            if (s_ctm) ((void (WINAPI *)(void *))s_ctm)(st.pwcsName);
                         }
                     }
-                    M.ch(r);
+                    IEnumSTATSTG_Release(en);
                 }
-                M.vc(v); M.ch(v);
             }
-            M.ch(pdb);
+            IStorage_Release(stg);
         }
         exec(db, "DELETE FROM `Media` WHERE `DiskId` >= 100 AND `DiskId` < 200", 0);   /* the patch's own Media row */
     }

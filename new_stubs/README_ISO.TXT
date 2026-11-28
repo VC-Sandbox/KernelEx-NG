@@ -46,3 +46,18 @@ Explorer crash diagnosis (EXPLDBG) - independent of KernelEx-NG
   b) Double-click EXPLDBG.BAT. A DOS window says "attached to EXPLORER.EXE". Minimise it - do not close it
      (Windows 98 cannot detach a debugger; closing the window ends Explorer).
   c) The log is appended after each crash. Run EXPLDBG.BAT again after each Windows start.
+
+Build history (most recent first)
+  Build 133 (2026-11-28): .NET 3.5 SP1 on Windows 98: fix .NET 3.0 SP2 partial install (only WCF files were
+    installed; WPF, WF, WCS and XPS components missing). Root cause: cabinet streams in .NET 3.0 patches use
+    MSI-encoded names that begin with bytes <= 0x20, filtered out by the previous stream-name check. Fixed by
+    replacing the MSI API cabinet-extraction path with direct IStorage stream enumeration and MSCF magic
+    detection, which is encoding-agnostic.
+
+  Build 132 (2026-11-27): .NET 3.5 SP1 installs to "Setup complete" on Windows 98 SE. Merged: MSI 3
+    slipstream (patches merged into the package before install), prntvpt.dll stub (skips XPS print update),
+    QueryServiceConfig2W/A stubs (WixCA custom action), PROCESSOR_ARCHITECTURE=x86 supplied to env_ext,
+    MsiDetermineApplicablePatches stub.
+
+  Build 131 (2026-11-21): Firefox 115 ESR window appears. KEXTRACE deadlock fix (bounded spin). DWrite.dll,
+    TextShaping.dll, ucrtbase.dll via KEXSETUP. kextest regression suite green (772/0).
