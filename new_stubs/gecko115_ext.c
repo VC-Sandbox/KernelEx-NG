@@ -601,8 +601,32 @@ LONG KEXAPI kex_RegCreateKeyTransactedW(HKEY k, LPCWSTR sub, DWORD r, LPWSTR cls
 { if (out) *out = NULL; return ERROR_CALL_NOT_IMPLEMENTED; }
 
 BOOL KEXAPI kex_CancelSynchronousIo(HANDLE t) { SetLastError(1168 /* ERROR_NOT_FOUND: no synchronous I/O to cancel */); return FALSE; }
-/* low-memory notification: an event nobody sets (Windows 98 has no such signal) */
-HANDLE KEXAPI kex_CreateMemoryResourceNotification(int type) { return CreateEventA(NULL, TRUE, FALSE, NULL); }
+/* low-memory notification: an event nobody sets (Windows 98 has no such signal).
+ * build 132: QueryMemoryResourceNotification as well. Measured: the .NET 2.0 runtime's garbage collector
+ * (mscorwks low_memory_exist) creates a LowMemoryResourceNotification handle, looks up QueryMemoryResourceNotification
+ * with GetProcAddress and calls it without a NULL check - with only Create available it called address 0
+ * (KEXCRASH: "at 00000000", from low_memory_exist) the first time a collection ran. The state is computed from
+ * Windows 98's memory status with NT's default thresholds (low below 32 MB available, high above 96 MB). */
+#define NMRN 16
+static struct { HANDLE h; int type; } g_mrn[NMRN];
+HANDLE KEXAPI kex_CreateMemoryResourceNotification(int type)
+{
+    HANDLE h; int i;
+    if (type != 0 && type != 1) { SetLastError(ERROR_INVALID_PARAMETER); return NULL; }
+    h = CreateEventA(NULL, TRUE, FALSE, NULL);
+    for (i = 0; h && i < NMRN; i++) if (!InterlockedCompareExchangePointer(&g_mrn[i].h, h, NULL)) { g_mrn[i].type = type; break; }
+    return h;
+}
+BOOL KEXAPI kex_QueryMemoryResourceNotification(HANDLE h, PBOOL state)
+{
+    MEMORYSTATUS ms; int i, type = -1;
+    if (!state) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
+    for (i = 0; i < NMRN; i++) if (h && g_mrn[i].h == h) { type = g_mrn[i].type; break; }
+    if (type < 0) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    ms.dwLength = sizeof(ms); GlobalMemoryStatus(&ms);
+    *state = type == 0 ? ms.dwAvailPhys < (32u << 20) : ms.dwAvailPhys > (96u << 20);
+    return TRUE;
+}
 HRESULT KEXAPI kex_RegisterApplicationRestart(PCWSTR cmd, DWORD flags) { return S_OK; }
 HRESULT KEXAPI kex_UnregisterApplicationRestart(void) { return S_OK; }
 HRESULT KEXAPI kex_GetApplicationRestartSettings(HANDLE p, PWSTR cmd, PDWORD n, PDWORD flags) { return (HRESULT)0x80070490L; } /* ERROR_NOT_FOUND */

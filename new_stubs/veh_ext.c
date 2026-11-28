@@ -451,6 +451,64 @@ static int teb_tls_fix(PCONTEXT ctx, PEXCEPTION_RECORD rec)
 }
 void kex_veh_ensure(void);
 
+/* build 132: the faulting address of an access violation, as NT's exception record carries it. Windows 98 often puts
+ * 0xFFFFFFFF in ExceptionInformation[1] (KEXCRASH: "reading ffffffff" for a load through a null pointer). Programs decide
+ * on that address - measured: the .NET 2.0 runtime turns an access violation in managed code below 64 KB into a
+ * NullReferenceException and any other into AccessViolationException, so "catch (NullReferenceException)" missed every
+ * null dereference on Windows 98 and the program ended with "Application has generated an exception that could not be
+ * handled". Here the address is computed from the faulting instruction's memory operand (ModRM/SIB and displacement
+ * with the saved registers, string instructions, moffs forms). Segment-prefixed (fs:/gs:) and 16-bit-address forms
+ * and anything not decoded keep Windows 98's value. */
+static DWORD regv(PCONTEXT c, int r)
+{
+    switch (r & 7) { case 0: return c->Eax; case 1: return c->Ecx; case 2: return c->Edx; case 3: return c->Ebx;
+                     case 4: return c->Esp; case 5: return c->Ebp; case 6: return c->Esi; default: return c->Edi; }
+}
+static int modrm1(BYTE op)     /* one-byte opcodes with a ModRM operand */
+{
+    if (op < 0x40) return (op & 7) < 4;
+    return op == 0x62 || op == 0x63 || op == 0x69 || op == 0x6B || (op >= 0x80 && op <= 0x8F && op != 0x8D) ||
+           op == 0xC0 || op == 0xC1 || op == 0xC4 || op == 0xC5 || op == 0xC6 || op == 0xC7 || (op >= 0xD0 && op <= 0xD3) ||
+           (op >= 0xD8 && op <= 0xDF) || op == 0xF6 || op == 0xF7 || op == 0xFE || op == 0xFF;
+}
+static int modrm2(BYTE op)     /* 0F xx opcodes with a ModRM operand */
+{
+    return (op >= 0x10 && op <= 0x17) || (op >= 0x28 && op <= 0x2F) || (op >= 0x40 && op <= 0x4F) || (op >= 0x50 && op <= 0x7F) ||
+           op == 0xA3 || op == 0xAB || op == 0xAF || op == 0xB0 || op == 0xB1 || op == 0xB3 || op == 0xB6 || op == 0xB7 ||
+           op == 0xBA || op == 0xBB || op == 0xBC || op == 0xBD || op == 0xBE || op == 0xBF || op == 0xC0 || op == 0xC1 || op == 0xC7;
+}
+static void av_address(PCONTEXT c, PEXCEPTION_RECORD rec)
+{
+    BYTE *p = (BYTE *)c->Eip, op, m; DWORD ea; int k;
+    if (rec->ExceptionCode != EXCEPTION_ACCESS_VIOLATION || rec->NumberParameters < 2 || rec->ExceptionInformation[1] != 0xFFFFFFFFUL ||
+        !p || IsBadReadPtr(p, 16)) return;
+    for (k = 0; k < 4; k++) {                                   /* prefixes */
+        if (*p == 0x64 || *p == 0x65 || *p == 0x67) return;     /* fs:/gs: or 16-bit addressing: not decoded */
+        if (*p == 0xF0 || *p == 0xF2 || *p == 0xF3 || *p == 0x2E || *p == 0x36 || *p == 0x3E || *p == 0x26 || *p == 0x66) p++; else break;
+    }
+    op = *p++;
+    if (op == 0x0F) { op = *p++; if (!modrm2(op)) return; }
+    else if (op >= 0xA0 && op <= 0xA3) { rec->ExceptionInformation[1] = *(DWORD *)p; return; }
+    else if (op >= 0xA4 && op <= 0xAF) {                       /* string instructions */
+        if (op == 0xAA || op == 0xAB || op == 0xAE || op == 0xAF) ea = c->Edi;
+        else if (op == 0xAC || op == 0xAD) ea = c->Esi;
+        else ea = rec->ExceptionInformation[0] ? c->Edi : c->Esi;
+        rec->ExceptionInformation[1] = ea; return;
+    }
+    else if (!modrm1(op)) return;
+    m = *p++;
+    if ((m >> 6) == 3) return;                                  /* register operand: no memory access */
+    if ((m & 7) == 4) {                                         /* SIB */
+        BYTE sib = *p++; int base = sib & 7, idx = (sib >> 3) & 7;
+        ea = idx == 4 ? 0 : regv(c, idx) << (sib >> 6);
+        if (base == 5 && (m >> 6) == 0) { ea += *(DWORD *)p; p += 4; } else ea += regv(c, base);
+    } else if ((m & 7) == 5 && (m >> 6) == 0) { ea = *(DWORD *)p; p += 4; }
+    else ea = regv(c, m & 7);
+    if ((m >> 6) == 1) ea += (DWORD)(LONG)(signed char)*p;
+    else if ((m >> 6) == 2) ea += *(DWORD *)p;
+    rec->ExceptionInformation[1] = ea;
+}
+
 /* Returns 1 = continue execution with *ctx, 0 = let the 9x dispatcher continue. cdecl, called from asm. */
 int __cdecl kex_veh_dispatch(PCONTEXT ctx, PEXCEPTION_RECORD rec)
 {
@@ -460,6 +518,7 @@ int __cdecl kex_veh_dispatch(PCONTEXT ctx, PEXCEPTION_RECORD rec)
     PVOID bp_addr = NULL;
     DWORD le = GetLastError();
     if (teb_tls_fix(ctx, rec)) { SetLastError(le); return 1; }   /* build 132: kexnt's own fix, before any handler */
+    av_address(ctx, rec);                                     /* build 132: NT's faulting address for every handler */
     if (g_veh.next == &g_veh) return 0;
     if (TlsGetValue(g_veh_guard_tls)) return 0;            /* exception inside a vectored handler */
     TlsSetValue(g_veh_guard_tls, (LPVOID)1);

@@ -469,6 +469,25 @@ static void nt_csd(BOOL add)
     RegCloseKey(k);
 }
 
+/* build 132: SYSTEM\L_INTL.NLS, Windows NT's casing table, which Windows 98 does not have. The .NET 2.0-3.5 runtime maps it
+ * for the invariant culture when the OS reports NT (mscorwks COMNlsInfo::CreateOSCasingTableMemorySection); without it
+ * no .NET 2.0-3.5 program starts (TypeInitializationException: System.Globalization.TextInfo). The CD's L_INTL.NLS is
+ * generated from Unicode data (gen_l_intl.py), not taken from Windows. Installed only where no such file exists;
+ * removed by /u only if it is still exactly ours. */
+static void nls_casing(BOOL add)
+{
+    char src[MAX_PATH], dst[MAX_PATH];
+    join(src, g_srcdir, "L_INTL.NLS"); join(dst, g_sysdir, "L_INTL.NLS");
+    if (add) {
+        if (GetFileAttributesA(src) == INVALID_FILE_ATTRIBUTES) return;
+        if (GetFileAttributesA(dst) != INVALID_FILE_ATTRIBUTES && !same_content(src, dst)) { LOG("  kept     %s (not ours)\n", dst); return; }
+        install_file(src, dst);
+    } else if (GetFileAttributesA(src) != INVALID_FILE_ATTRIBUTES && same_content(src, dst)) {
+        make_writable(dst);
+        if (DeleteFileA(dst)) LOG("  removed  %s\n", dst);
+    }
+}
+
 /* ---- version profiles (KEXVER.DLL) in core.ini, the KernelEx way: [ApiConfigurations] N=NAME + sections ---- */
 static const struct { const char *name, *desc; } g_profiles[] = {   /* index = kexver.<N> */
     { "WIN7",       "Windows 7 SP1" },
@@ -933,7 +952,7 @@ int main(int argc, char **argv)
         join(path, g_kexdir, "KEXNT.DLL");
         install_file(src, path);
         if (g_err) goto done;                 /* don't point core.ini at a DLL that isn't there */
-        known_dll(TRUE); xul_rule(TRUE); loader_boot(TRUE); nt_csd(TRUE);
+        known_dll(TRUE); xul_rule(TRUE); loader_boot(TRUE); nt_csd(TRUE); nls_casing(TRUE);
         read_old_list();
         apisets_install();
         stubs_install();
@@ -997,7 +1016,7 @@ int main(int argc, char **argv)
         remove_file(path);
         join(path, g_kexdir, "KEXALIAS.VXD");
         if (GetFileAttributesA(path) != 0xFFFFFFFF) remove_file(path);
-        known_dll(FALSE); xul_rule(FALSE); root_cert(FALSE); loader_boot(FALSE); nt_csd(FALSE);
+        known_dll(FALSE); xul_rule(FALSE); root_cert(FALSE); loader_boot(FALSE); nt_csd(FALSE); nls_casing(FALSE);
         audio_register(FALSE, NULL);
         join(path, g_sysdir, "KEXAUDIO.DLL");
         if (GetFileAttributesA(path) != 0xFFFFFFFF) remove_file(path);

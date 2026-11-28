@@ -389,6 +389,27 @@ static void fix_type(LPCVOID a, PMEMORY_BASIC_INFORMATION m, SIZE_T r)
         m->Type = MEM_IMAGE;
 }
 
+/* build 132: the stack guard page of a .NET thread, as NT reports it. NT keeps a PAGE_GUARD page just below the committed
+ * part of a thread's stack; Windows 98 grows a stack without one (the next page below is reserved and committed on
+ * touch), so VirtualQuery never shows PAGE_GUARD. Measured: the .NET 2.0 runtime, after every caught exception
+ * (ResumeAtJitEH -> Thread::RestoreGuardPage), scans its stack downward for a page with PAGE_GUARD
+ * (Thread::MarkPageAsGuard = VirtualQuery + test 0x100); finding none it raised a fatal "stack overflow" (0x800703E9) and
+ * waited for a debugger - every try/catch hung the program. In .NET processes, a query of the calling thread's own
+ * stack reports the reserved page directly below the committed part - the one Windows 98 commits next - as committed
+ * PAGE_READWRITE | PAGE_GUARD, and the rest of that reserved range as before. */
+int kex_gate_is_clr(void);
+static void stack_guard(LPCVOID a, PMEMORY_BASIC_INFORMATION m)
+{
+    MEMORY_BASIC_INFORMATION me, up; BYTE *top, *g;
+    if (m->State != MEM_RESERVE || !VirtualQuery(&me, &me, sizeof(me)) || me.AllocationBase != m->AllocationBase || !kex_gate_is_clr()) return;
+    top = (BYTE *)m->BaseAddress + m->RegionSize;
+    if (!VirtualQuery(top, &up, sizeof(up)) || up.State != MEM_COMMIT || up.AllocationBase != m->AllocationBase || m->RegionSize < 0x1000) return;
+    g = top - 0x1000;
+    if ((const BYTE *)a >= g) {
+        m->BaseAddress = g; m->RegionSize = 0x1000; m->State = MEM_COMMIT; m->Protect = PAGE_READWRITE | PAGE_GUARD; m->Type = MEM_PRIVATE;
+    } else m->RegionSize -= 0x1000;
+}
+
 SIZE_T KEXAPI kex_VirtualQuery(LPCVOID a, PMEMORY_BASIC_INFORMATION m, SIZE_T n)
 {
     SIZE_T r; DWORD bp;
@@ -402,6 +423,7 @@ SIZE_T KEXAPI kex_VirtualQuery(LPCVOID a, PMEMORY_BASIC_INFORMATION m, SIZE_T n)
         kex_trace("  bigsec reported protect", bp, 0, 0, 0);
     }
     if (m) fix_type(a, m, r);
+    if (m && r >= sizeof(*m)) stack_guard(a, m);
     return r;
 }
 

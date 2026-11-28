@@ -2046,6 +2046,7 @@ CredFree ADVAPI32
 RegCreateKeyTransactedW ADVAPI32
 CancelSynchronousIo KERNEL32
 CreateMemoryResourceNotification KERNEL32
+QueryMemoryResourceNotification KERNEL32
 RegisterApplicationRestart KERNEL32
 UnregisterApplicationRestart KERNEL32
 GetApplicationRestartSettings KERNEL32

@@ -262,6 +262,7 @@ iso: all stubs
 	cp vxd_alias/kexalias.vxd $(B)/iso/KEXALIAS.VXD
 	cp tests/TRACEON.REG tests/TRACEOFF.REG tests/PROFON.REG tests/PROFOFF.REG tests/BOOSTON.REG tests/BOOSTOFF.REG tests/CHRBLOFF.REG tests/GLKEEPOFF.REG tests/GLKEEPON.REG tests/GATEOFF.REG tests/GATEON.REG $(B)/iso/
 	sed 's/$$/\r/' README_ISO.TXT > $(B)/iso/README.TXT
+	python3 -I gen_l_intl.py $(B)/iso/L_INTL.NLS   # NT casing table from Unicode data (.NET 2.0-3.5 runtime)
 	[ -z "$(ISO_NOTES)" ] || sed 's/$$/\r/' $(ISO_NOTES) >> $(B)/iso/README.TXT   # optional extra test notes for a test CD
 	if command -v xorriso >/dev/null; then xorriso -as mkisofs -J -r -V KEXNG -o $(B)/kexng.iso $(B)/iso; \
 	else python3 ../tools/mkiso.py -V KEXNG -o $(B)/kexng.iso $(B)/iso; fi

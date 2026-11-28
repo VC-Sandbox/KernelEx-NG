@@ -283,6 +283,10 @@ static void report(DWORD tid)
     ebp = c.Ebp;
     for (i = 0; i < 64 && ebp && rd(ebp, fr, 8); i++) {
         L("    %08lx  ret %s\n", ebp, where(fr[1]));
+        if (i < 12 && !strchr(where(fr[1]), '+')) {   /* 2026-11-27: generated code (no module): the bytes before the return */
+            BYTE cb[768]; int j, nb = i < 2 ? 768 : (i < 3 ? 256 : 64);
+            if (rd(fr[1] - nb, cb, nb)) { L("      code before:"); for (j = 0; j < nb; j++) L(" %02x", cb[j]); L("\n"); }
+        }
         if (fr[0] <= ebp) break;
         ebp = fr[0];
     }
@@ -413,15 +417,26 @@ int main(int argc, char **argv)
             if (code == EXCEPTION_BREAKPOINT && first_bp) { first_bp = FALSE; L("initial breakpoint at %s\n", where(addr)); bp_arm_all(); break; }
             if (code == EXCEPTION_BREAKPOINT && bp_hit(ev.dwThreadId, addr)) break;
             if (code == EXCEPTION_SINGLE_STEP && bp_step(ev.dwThreadId)) break;
-            if (nexc++ < 500 || !fc)
-                L("EXC %s %08lx at %s thread %08lx", fc ? "first" : "SECOND", code, where(addr), ev.dwThreadId);
-            if (code == EXCEPTION_ACCESS_VIOLATION && er->NumberParameters >= 2)
-                L(" (%s %08lx)", er->ExceptionInformation[0] ? "write" : "read", er->ExceptionInformation[1]);
-            else if (er->NumberParameters) {
-                DWORD k; L(" params");
-                for (k = 0; k < er->NumberParameters && k < 4; k++) L(" %08lx", er->ExceptionInformation[k]);
+            {   /* 2026-11-27: first-chance faults are logged 3 times per (code, address) - a probing loop (Windows 98's
+                 * IsBadReadPtr at KERNEL32+ba0b: hundreds per .NET start) no longer fills the 500-line budget */
+                static DWORD site_code[256], site_addr[256], site_n[256]; static int nsite; int k, show = !fc;
+                if (fc) {
+                    for (k = 0; k < nsite; k++) if (site_code[k] == code && site_addr[k] == addr) break;
+                    if (k == nsite && nsite < 256) { site_code[k] = code; site_addr[k] = addr; site_n[k] = 0; nsite++; }
+                    if (k < 256 && ++site_n[k] <= 3 && nexc++ < 500) show = 1;
+                    if (k < 256 && site_n[k] == 4) L("EXC first %08lx at %s: further ones not logged\n", code, where(addr));
+                }
+                if (show) {
+                    L("EXC %s %08lx at %s thread %08lx", fc ? "first" : "SECOND", code, where(addr), ev.dwThreadId);
+                    if (code == EXCEPTION_ACCESS_VIOLATION && er->NumberParameters >= 2)
+                        L(" (%s %08lx)", er->ExceptionInformation[0] ? "write" : "read", er->ExceptionInformation[1]);
+                    else if (er->NumberParameters) {
+                        DWORD j; L(" params");
+                        for (j = 0; j < er->NumberParameters && j < 4; j++) L(" %08lx", er->ExceptionInformation[j]);
+                    }
+                    L("\n");
+                }
             }
-            if (nexc <= 500 || !fc) L("\n");
             if (!fc || code == EXCEPTION_BREAKPOINT || code == EXCEPTION_ILLEGAL_INSTRUCTION || g_all) report(ev.dwThreadId);
             cont = DBG_EXCEPTION_NOT_HANDLED;
             break;
