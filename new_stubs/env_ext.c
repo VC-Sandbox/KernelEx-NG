@@ -5,8 +5,12 @@
  * every process. Windows 98 defines none of them (it has windir). Measured:
  *   - .NET Framework 3.5 SP1 setup (WapUI.dll reads GetEnvironmentVariableW("SystemDrive")): "Setup requires 350 MB of
  *     free space on System Drive, but only 0 MB is available" (dd_dotnetfx35install.txt), setup cannot continue;
- *   - Office 2007 setup: "Failed to check free space in drive "%SystemRoot%" ErrorCode: 2" -> return code 30015.
- * Here, in programs kexnt serves, a lookup of one of these names that the environment does not hold gets the
+ *   - Office 2007 setup: "Failed to check free space in drive "%SystemRoot%" ErrorCode: 2" -> return code 30015;
+ *   - .NET 3.5 SP1's WFServicesReg.exe (custom action of the 3.5 package) takes the system as 64-bit unless
+ *     GetEnvironmentVariableW("PROCESSOR_ARCHITECTURE") equals "x86", looks for Framework64\v2.0.50727\config\
+ *     machine.config and fails (0x80004005), so the 3.5 package rolls back. NT sets PROCESSOR_ARCHITECTURE=x86 on every
+ *     32-bit x86 system, and Windows 98 runs only on x86.
+ * Here, in programs kexnt serves, a lookup of one of these names (and PROCESSOR_ARCHITECTURE) that the environment does not hold gets the
  * Windows 98 location NT would report: SystemDrive = the Windows folder's drive ("C:"), SystemRoot = the Windows folder,
  * ProgramFiles / CommonProgramFiles = the folders Windows 98 records (HKLM\Software\Microsoft\Windows\CurrentVersion
  * ProgramFilesDir / CommonFilesDir). GetEnvironmentVariableA/W answer them; ExpandEnvironmentStringsA/W replace
@@ -43,6 +47,7 @@ static BOOL nt_default(const char *name, char *out)
     }
     if (name_eq(name, "ProgramFiles")) return reg_dir("ProgramFilesDir", out);
     if (name_eq(name, "CommonProgramFiles")) return reg_dir("CommonFilesDir", out);
+    if (name_eq(name, "PROCESSOR_ARCHITECTURE")) { lstrcpyA(out, "x86"); return TRUE; }
     return FALSE;
 }
 

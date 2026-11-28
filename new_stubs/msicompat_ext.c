@@ -597,13 +597,15 @@ static void msi_force_log(void)
     r = el(0x1FFF /* everything incl. VERBOSE */, path, 1 /* INSTALLLOGATTRIBUTES_APPEND */);
     kex_crashnote("MSI: verbose log forced (KexNG\\MsiLog=1) to %WINDIR%\\TEMP\\KXMSI.LOG (MsiEnableLog result)", r, 0, 0, 0);
 }
+BOOL kex_slip_install(LPCWSTR pkg, LPCWSTR cmd, WCHAR *newpkg, WCHAR **newcmd);   /* slip_ext.c (build 132) */
 UINT KEXAPI kex_MsiInstallProductW(LPCWSTR pkg, LPCWSTR cmd)
 {
-    WCHAR c[MAX_PATH], *nc; UINT r; MSIFN(MsiInstallProductW);
+    WCHAR c[MAX_PATH], *nc, sp[MAX_PATH], *sc = NULL; UINT r; MSIFN(MsiInstallProductW);
     msi_force_log();
+    if (kex_slip_install(pkg, cmd, sp, &sc)) { pkg = sp; cmd = sc; }   /* Windows Installer 3 patches merged into the package */
     nc = cmd_patch_w(cmd);
     r = ((T_IPW)p_MsiInstallProductW)(conv_w(pkg, c) ? c : pkg, nc ? nc : cmd);
-    xfree(nc); return r;
+    xfree(nc); if (sc) HeapFree(GetProcessHeap(), 0, sc); return r;
 }
 UINT KEXAPI kex_MsiInstallProductA(LPCSTR pkg, LPCSTR cmd)
 {

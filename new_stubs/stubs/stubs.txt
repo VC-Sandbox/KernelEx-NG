@@ -280,3 +280,19 @@ avrt.dll AvSetMmMaxThreadCharacteristicsW val:0x4B4D4D43
 avrt.dll AvRevertMmThreadCharacteristics val:1
 avrt.dll AvSetMmThreadPriority val:1
 avrt.dll AvQuerySystemResponsiveness val:1
+# prntvpt.dll (build 132): the Print Ticket API of the XPS print path. The .NET Framework 3.5 SP1 setup treats its
+# "XPSEPSC" component (Windows XP update KB954550: XPS print driver + print filter pipeline service, nothing Windows 98
+# can run) as present when SYSTEM\prntvpt.dll has version >= 6.1.2600.5635 (dd_depcheck: FileVersionCheck); without it
+# the setup runs that XP update, which exits with 31 and stops .NET 3.0/3.5. Only WPF printing calls these; they
+# report E_NOTIMPL. Version resource: stubs/prntvpt.rc.
+prntvpt.dll PTOpenProvider hr:80004001:3
+prntvpt.dll PTOpenProviderEx hr:80004001:4
+prntvpt.dll PTCloseProvider hr:80004001
+prntvpt.dll PTQuerySchemaVersionSupport hr:80004001
+prntvpt.dll PTConvertDevModeToPrintTicket hr:80004001
+prntvpt.dll PTConvertPrintTicketToDevMode hr:80004001:6:7
+prntvpt.dll PTGetPrintCapabilities hr:80004001:4
+prntvpt.dll PTGetPrintDeviceCapabilities hr:80004001:4
+prntvpt.dll PTGetPrintDeviceResources hr:80004001:5
+prntvpt.dll PTMergeAndValidatePrintTicket hr:80004001:6
+prntvpt.dll PTReleaseMemory hr:0

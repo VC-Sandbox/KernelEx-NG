@@ -864,4 +864,9 @@ DWORD KEXAPI kex_CM_Unregister_Notification(PVOID h) { return 0; }
 /* Google Chrome standalone setup (Omaha): no service manager on Windows 98; one foreground rule */
 BOOL KEXAPI kex_ChangeServiceConfig2W(HANDLE svc, DWORD level, LPVOID info) { SetLastError(ERROR_CALL_NOT_IMPLEMENTED); return FALSE; }
 BOOL KEXAPI kex_ChangeServiceConfig2A(HANDLE svc, DWORD level, LPVOID info) { SetLastError(ERROR_CALL_NOT_IMPLEMENTED); return FALSE; }
+/* .NET 3.5 SP1 setup: its WiX custom-action DLL (WixCA, XmlConfig) imports QueryServiceConfig2W statically */
+BOOL KEXAPI kex_QueryServiceConfig2W(HANDLE svc, DWORD level, LPBYTE buf, DWORD len, LPDWORD need)
+{ if (need) *need = 0; SetLastError(ERROR_CALL_NOT_IMPLEMENTED); return FALSE; }
+BOOL KEXAPI kex_QueryServiceConfig2A(HANDLE svc, DWORD level, LPBYTE buf, DWORD len, LPDWORD need)
+{ if (need) *need = 0; SetLastError(ERROR_CALL_NOT_IMPLEMENTED); return FALSE; }
 BOOL KEXAPI kex_AllowSetForegroundWindow(DWORD pid) { return TRUE; }   /* Windows 98 has no foreground lock */

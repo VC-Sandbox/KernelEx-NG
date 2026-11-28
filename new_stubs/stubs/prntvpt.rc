@@ -1,0 +1,32 @@
+/* prntvpt.rc - version resource of KernelEx-NG's Print Ticket API stub (build 132).
+ * The .NET Framework 3.5 SP1 setup checks SYSTEM\prntvpt.dll >= 6.1.2600.5635 to decide that the XPS Essentials Pack
+ * (a Windows XP print-driver update that cannot apply to Windows 98) is present. The stub states that API level; its
+ * functions return E_NOTIMPL (no XPS printing). */
+#include <winver.h>
+VS_VERSION_INFO VERSIONINFO
+FILEVERSION 6,1,2600,5635
+PRODUCTVERSION 6,1,2600,5635
+FILEFLAGSMASK 0x3F
+FILEFLAGS 0
+FILEOS VOS_NT_WINDOWS32
+FILETYPE VFT_DLL
+FILESUBTYPE 0
+BEGIN
+    BLOCK "StringFileInfo"
+    BEGIN
+        BLOCK "040904B0"
+        BEGIN
+            VALUE "CompanyName", "KernelEx-NG"
+            VALUE "FileDescription", "KernelEx-NG Print Ticket API stub (no XPS printing - functions return E_NOTIMPL)"
+            VALUE "FileVersion", "6.1.2600.5635"
+            VALUE "InternalName", "prntvpt"
+            VALUE "OriginalFilename", "prntvpt.dll"
+            VALUE "ProductName", "KernelEx-NG"
+            VALUE "ProductVersion", "6.1.2600.5635"
+        END
+    END
+    BLOCK "VarFileInfo"
+    BEGIN
+        VALUE "Translation", 0x409, 1200
+    END
+END

@@ -2095,6 +2095,8 @@ CM_Register_Notification CFGMGR32
 CM_Unregister_Notification CFGMGR32
 ChangeServiceConfig2W ADVAPI32
 ChangeServiceConfig2A ADVAPI32
+QueryServiceConfig2W ADVAPI32
+QueryServiceConfig2A ADVAPI32
 AllowSetForegroundWindow USER32
 
 # ntfacade_ext.c (build 131): GetModuleHandle("ntdll.dll") in a modern program = a facade with kexnt's NTDLL exports
@@ -2174,3 +2176,5 @@ GetEnvironmentVariableA KERNEL32
 GetEnvironmentVariableW KERNEL32
 ExpandEnvironmentStringsA KERNEL32
 ExpandEnvironmentStringsW KERNEL32
+MsiDetermineApplicablePatchesW MSI
+MsiDetermineApplicablePatchesA MSI
