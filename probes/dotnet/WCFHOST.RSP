@@ -1,0 +1,4 @@
+/nologo /out:C:\T\WCFHOST.EXE /t:exe
+/lib:"C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0"
+/r:System.ServiceModel.dll
+C:\T\T.cs C:\T\wcfhost.cs

@@ -22,5 +22,5 @@ public static class T {
         catch (Exception e) { fail++; lock (w) w.WriteLine("FAIL " + n + ": " + e.ToString()); }
     }
     public static void Check(bool c, string what) { if (!c) throw new Exception("check failed: " + what); }
-    public static int End() { w.WriteLine("END pass " + pass + " fail " + fail); w.Close(); return fail; }
+    public static int End() { lock (w) w.WriteLine("END pass " + pass + " fail " + fail); return fail; }
 }
