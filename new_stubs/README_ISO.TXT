@@ -48,6 +48,15 @@ Explorer crash diagnosis (EXPLDBG) - independent of KernelEx-NG
   c) The log is appended after each crash. Run EXPLDBG.BAT again after each Windows start.
 
 Build history (most recent first)
+  Build 134 (2026-11-28): .NET 3.5 SP1 on Windows 98: fix WF/WPF/WCS/XPS components still missing after 133.
+    Root cause: DOTNETFX35.EXE makes a second MsiInstallProductW call for netfx30a_x86.msi without PATCH=
+    (chain verify/repair pass). Without PATCH=, kex_slip_install returned FALSE so conv_w processed the
+    original D:\ extraction MSI and created netfx30a_x86_kx98.msi beside it, but the MSI source cache from
+    the first install registered the package as netfx30a_x86_kx98p_kx98.msi in %WINDIR%\KEXMSI\ - name
+    mismatch caused error 1316, aborting the WF/WPF/WCS/XPS component install phase. Fixed in
+    kex_slip_install: when no PATCH= is in cmd, check if %WINDIR%\KEXMSI\<basename>_kx98p.msi already
+    exists; if so, return it so conv_w produces the matching _kx98p_kx98.msi name.
+
   Build 133 (2026-11-28): .NET 3.5 SP1 on Windows 98: fix .NET 3.0 SP2 partial install (only WCF files were
     installed; WPF, WF, WCS and XPS components missing). Root cause: cabinet streams in .NET 3.0 patches use
     MSI-encoded names that begin with bytes <= 0x20, filtered out by the previous stream-name check. Fixed by

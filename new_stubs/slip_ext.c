@@ -267,7 +267,31 @@ BOOL kex_slip_install(LPCWSTR pkg, LPCWSTR cmd, WCHAR *newpkg, WCHAR **newcmd)
     if (!pkg || !cmd || IsBadStringPtrW(cmd, 32767) || !api()) return FALSE;
     for (p = cmd; *p; p++)
         if ((p == cmd || p[-1] == L' ') && (p[0] | 32) == 'p' && (p[1] | 32) == 'a' && (p[2] | 32) == 't' && (p[3] | 32) == 'c' && (p[4] | 32) == 'h' && p[5] == L'=') break;
-    if (!*p) return FALSE;
+    if (!*p) {
+        /* No PATCH= in cmd: if we already merged this package for a previous call, reuse the existing
+         * kx98p so the registered package name stays consistent (avoids error 1316 on second-pass
+         * installs where the chain installer calls without PATCH= but MSI expects the kx98p name). */
+        char dir[MAX_PATH], base[MAX_PATH], kxp[MAX_PATH]; const char *b; char *dot, *q;
+        if (!WideCharToMultiByte(CP_ACP, 0, pkg, -1, apkg, MAX_PATH, NULL, NULL)) return FALSE;
+        if (!GetWindowsDirectoryA(dir, MAX_PATH - 40)) return FALSE;
+        lstrcatA(dir, "\\KEXMSI");
+        b = rchr(apkg, '\\'); b = b ? b + 1 : apkg;
+        lstrcpyA(base, b);
+        dot = rchr(base, '.'); if (dot && dot > base) *dot = 0;
+        /* strip _kx98p/_kx98 suffix that conv_w or a previous pass may have added */
+        q = chr(base, '_');
+        while (q) {
+            if (!lstrcmpiA(q, "_kx98p") || !lstrcmpiA(q, "_kx98")) { *q = 0; break; }
+            q = chr(q + 1, '_');
+        }
+        lstrcpyA(kxp, dir); lstrcatA(kxp, "\\"); lstrcatA(kxp, base); lstrcatA(kxp, "_kx98p.msi");
+        if (GetFileAttributesA(kxp) == INVALID_FILE_ATTRIBUTES) return FALSE;
+        if (!(nc = (WCHAR *)HeapAlloc(GetProcessHeap(), 0, (lstrlenW(cmd) + 1) * sizeof(WCHAR)))) return FALSE;
+        lstrcpyW(nc, cmd);
+        MultiByteToWideChar(CP_ACP, 0, kxp, -1, newpkg, MAX_PATH);
+        *newcmd = nc;
+        return TRUE;
+    }
     s = p; p += 6;
     {   int q = *p == L'"'; if (q) p++;
         while (*p && (q ? *p != L'"' : *p != L' ') && np < 16) {

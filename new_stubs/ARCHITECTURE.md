@@ -329,3 +329,40 @@ debugging only plus the page probe (KEXCLICK/KEXGAP/KEXLATE/KEXLONG/KEXEVT) on t
   longer crashes kextest. New diagnostic modes: "kextest only NAME..." (chosen tests in order; "mods" = module list,
   "hangdump" = KEXHANG thread dump), "kextest dwstep N", "kextest loadlib DLL...". KEXDBG -stall N: reports every
   thread when the debuggee sends no debug event for N s.
+
+## Build 132
+- msicompat_ext.c / slip_ext.c: .NET 3.5 SP1 installs to "Setup complete" on Windows 98 SE. New subsystem:
+  Windows Installer 3 patch slipstreaming (kex_slip_install in slip_ext.c). When a program calls
+  MsiInstallProductW with a PATCH= list, the hook:
+  (1) opens each .msp patch with StgOpenStorage,
+  (2) extracts transforms from the patch's summary stream and applies them to a copy of the base .msi,
+  (3) copies each patch's cabinet streams into the merged package (naming them KX98P_CABn),
+  (4) rewrites the Media table so the merged package is self-contained with all patch cabinets embedded,
+  (5) calls real MsiInstallProduct on the merged package at %WINDIR%\KEXMSI\<name>_kx98p.msi.
+  Also added: prntvpt.dll stub (skips XPS print update that aborts on Windows 98),
+  QueryServiceConfig2W/A stubs (WixCA custom action), PROCESSOR_ARCHITECTURE=x86 supplied to env_ext,
+  MsiDetermineApplicablePatches stub (returns all patches applicable in given order).
+
+## Build 133
+- slip_ext.c: Fix .NET 3.0 SP2 partial install. Root cause: .NET 3.0 patches embed their cabinets under
+  MSI-encoded stream names whose first decoded byte is <= 0x20 (space), which the build 132 filter
+  `if (an[0] > ' ')` rejected. All patch cabinets were silently skipped, leaving only the base .msi's WCF
+  files; WPF, WF, Windows Communication Foundation Setup (WCS) and XPS components were never installed.
+  Fix: replace the MSIDBOPEN_PATCHFILE + _Streams MSI API path with direct IStorage stream enumeration
+  (IEnumSTATSTG) and MSCF magic detection (first 4 bytes "MSCF"). The name filter is removed entirely;
+  cabinet streams are identified by content, not by name. MSIDBOPEN_PATCHFILE (value 32) is a WI 3.0
+  addition not reliably available on Windows 98's MSI 2.0; IStorage enumeration avoids it.
+  CoTaskMemFree for STATSTG::pwcsName loaded lazily via kex_sysproc.
+
+## Build 134
+- slip_ext.c: Fix .NET 3.0 WF/WPF/WCS/XPS components still not installing after build 133. Root cause:
+  DOTNETFX35.EXE makes a second MsiInstallProductW call for netfx30a_x86.msi WITHOUT PATCH= (a chain
+  verify/repair pass after the .NET 3.5 SP1 MSI completes). kex_slip_install returned FALSE (no PATCH=),
+  so conv_w processed the original D:\ extraction MSI and created netfx30a_x86_kx98.msi beside it on D:\.
+  But the MSI source cache from the first (PATCH=) install registered the package as netfx30a_x86_kx98p_kx98.msi
+  in %WINDIR%\KEXMSI\. The name mismatch caused error 1316 on the second pass, aborting the component
+  install phase that would have written WF/WPF/WCS/XPS.
+  Fix: in kex_slip_install, when no PATCH= is in cmd, check if %WINDIR%\KEXMSI\<basename>_kx98p.msi
+  already exists. If it does, return it as the new package so conv_w produces %WINDIR%\KEXMSI\..._kx98p_kx98.msi
+  - matching the registered name. kex suffixes (_kx98p, _kx98) are stripped from the basename before the
+  lookup so the check is correct even if the caller passes an already-processed path.
