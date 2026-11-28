@@ -349,6 +349,26 @@ static int nt_launch_conditions(const char *path)
  * ("NOT Version9X": .NET's perfcounter.dll stays out); a package with a row that SELECTS Version9X keeps all its
  * conditions (it chooses Windows 98 variants itself). */
 static int has(const char *s, const char *w) { int l = lstrlenA(w); for (; *s; s++) if (pfx(s, w)) return 1; (void)l; return 0; }
+/* Windows Installer 2.0 on Windows 98 skips the ServiceInstall/ServiceControl tables: there is no service manager.
+ * The WiX ServiceConfig table configures failure actions of those services; its ExecServiceConfig action then fails on
+ * OpenService (error 120) and rolls the whole install back (.NET 3.0 SP2, PresentationFontCache). The rows are
+ * dropped from the converted copy of an NT-only package, so their services are skipped consistently. */
+static void drop_service_config(const char *path)
+{
+#define MP(t, n) t n = (t)(void *)kex_sysproc("MSI.DLL", #n)
+    MP(T_MODA, MsiOpenDatabaseA); MP(T_MOVA, MsiDatabaseOpenViewA); MP(T_MVE, MsiViewExecute); MP(T_MCH, MsiCloseHandle);
+    MP(T_MDC, MsiDatabaseCommit);
+#undef MP
+    DWORD db = 0, v = 0;
+    if (!MsiOpenDatabaseA || !MsiDatabaseOpenViewA || !MsiViewExecute || !MsiCloseHandle || !MsiDatabaseCommit) return;
+    if (MsiOpenDatabaseA(path, (LPCSTR)(ULONG_PTR)1 /* MSIDBOPEN_TRANSACT */, &db)) return;
+    if (!MsiDatabaseOpenViewA(db, "DELETE FROM `ServiceConfig`", &v)) {
+        if (!MsiViewExecute(v, 0)) { MsiDatabaseCommit(db); msilog("  ServiceConfig rows dropped (no services on 9x)", path, 0); }
+        MsiCloseHandle(v);
+    }
+    MsiCloseHandle(db);
+}
+
 static void nt_component_conditions(const char *path)
 {
 #define MP(t, n) t n = (t)(void *)kex_sysproc("MSI.DLL", #n)
@@ -502,7 +522,7 @@ static BOOL convert(const char *src, char *tmp_out, int exact)
                   (DWORD)why, c.ss, (DWORD)g_fixed, 0);
     cfb_close(&c);
     if (!ok) { DeleteFileA(tmp_out); return FALSE; }
-    if (!exact && is_db == 1) { xp_launch_conditions(tmp_out); nt_component_conditions(tmp_out); sys32_rows(tmp_out, 1); }
+    if (!exact && is_db == 1) { xp_launch_conditions(tmp_out); nt_component_conditions(tmp_out); drop_service_config(tmp_out); sys32_rows(tmp_out, 1); }
     kex_spin_acquire(&g_lock);
     if (g_nconv < 16) { lstrcpynA(g_conv[g_nconv].src, src, MAX_PATH); g_conv[g_nconv].wt = wt; g_conv[g_nconv].size = size;
                         lstrcpynA(g_conv[g_nconv].tmp, tmp_out, MAX_PATH); g_conv[g_nconv].in_temp = in_temp; g_conv[g_nconv].exact = exact; g_nconv++; }
@@ -640,6 +660,44 @@ UINT KEXAPI kex_MsiApplyPatchA(LPCSTR patch, LPCSTR pkg, int type, LPCSTR cmd)
     nc = cmd_patch_a(cmd);
     r = ((T_APA)p_MsiApplyPatchA)(conv_a(patch, c1) ? c1 : patch, (pkg && conv_a(pkg, c2)) ? c2 : pkg, type, nc ? nc : cmd);
     xfree(nc); return r;
+}
+/* WiX custom actions join CustomActionData fields with U+0080. Windows Installer 2.0 on Windows 98 keeps property
+ * values as ANSI text, where U+0080 has no character and becomes '?', so the deferred action cannot split its data
+ * (ExecSecureObjects of .NET 3.0 SP2: "failed to process CustomActionData", 0x80070103). It is stored as the character
+ * of ANSI byte 0x80 instead (U+20AC on code page 1252) and CustomActionData gives it back as U+0080. */
+static WCHAR ansi80(void)
+{
+    static WCHAR w;
+    if (!w) {
+        char b = (char)0x80, back = 0; WCHAR t = 0;
+        w = (MultiByteToWideChar(CP_ACP, 0, &b, 1, &t, 1) == 1 && t != 0x80 &&
+             WideCharToMultiByte(CP_ACP, 0, &t, 1, &back, 1, NULL, NULL) == 1 && back == b) ? t : 0xFFFF;
+    }
+    return w == 0xFFFF ? 0 : w;
+}
+typedef UINT (WINAPI *T_SPW)(DWORD, LPCWSTR, LPCWSTR); typedef UINT (WINAPI *T_GPW)(DWORD, LPCWSTR, LPWSTR, DWORD *);
+UINT KEXAPI kex_MsiSetPropertyW(DWORD h, LPCWSTR name, LPCWSTR val)
+{
+    WCHAR m = ansi80(), *c = NULL; const WCHAR *s; UINT r; MSIFN(MsiSetPropertyW);
+    for (s = val; m && s && *s && *s != 0x80; s++) ;
+    if (m && s && *s) {
+        int n = lstrlenW(val), i;
+        if ((c = (WCHAR *)HeapAlloc(GetProcessHeap(), 0, (n + 1) * sizeof(WCHAR))) != NULL)
+            for (i = 0; i <= n; i++) c[i] = val[i] == 0x80 ? m : val[i];
+    }
+    r = ((T_SPW)p_MsiSetPropertyW)(h, name, c ? c : val);
+    if (c) HeapFree(GetProcessHeap(), 0, c);
+    return r;
+}
+UINT KEXAPI kex_MsiGetPropertyW(DWORD h, LPCWSTR name, LPWSTR buf, DWORD *cch)
+{
+    static const WCHAR cad[] = L"CustomActionData"; WCHAR m = ansi80(); UINT r; DWORD i; MSIFN(MsiGetPropertyW);
+    r = ((T_GPW)p_MsiGetPropertyW)(h, name, buf, cch);
+    if (!r && m && buf && cch && name) {
+        for (i = 0; cad[i] && name[i] == cad[i]; i++) ;
+        if (!cad[i] && !name[i]) for (i = 0; i < *cch && buf[i]; i++) if (buf[i] == m) buf[i] = 0x80;
+    }
+    return r;
 }
 typedef UINT (WINAPI *T_OPW)(LPCWSTR, DWORD *); typedef UINT (WINAPI *T_OPA)(LPCSTR, DWORD *);
 typedef UINT (WINAPI *T_OPXW)(LPCWSTR, DWORD, DWORD *); typedef UINT (WINAPI *T_OPXA)(LPCSTR, DWORD, DWORD *);

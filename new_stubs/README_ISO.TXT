@@ -48,6 +48,16 @@ Explorer crash diagnosis (EXPLDBG) - independent of KernelEx-NG
   c) The log is appended after each crash. Run EXPLDBG.BAT again after each Windows start.
 
 Build history (most recent first)
+  Build 137 (2026-11-28): .NET 3.5 SP1 installs completely on Windows 98 SE, with .NET 3.0 SP2 WCF, WF, WPF,
+    CardSpace and XPS. Two fixes:
+    - WiX custom actions separate their CustomActionData fields with character U+0080, which Windows 98's ANSI
+      Windows Installer stored as '?', so ExecSecureObjects/ExecXmlConfig could not read their data (0x80070103).
+      MsiSetPropertyW now stores U+0080 as the character of ANSI byte 0x80, and MsiGetPropertyW("CustomActionData")
+      returns it as U+0080 again.
+    - Windows Installer skips service installation on Windows 98, but the WiX ServiceConfig table still tried to
+      configure the (absent) WPF font cache service and rolled the install back. Converted NT-only packages now
+      have no ServiceConfig rows.
+
   Build 136 (2026-11-28): .NET 3.5 SP1 on Windows 98: the WF/WPF/WCS/XPS files of .NET 3.0 SP2 are now merged.
     Cause: the patch merge wrote every patch transform to one temporary file; Windows Installer 2.0 keeps an
     applied transform open, so all transforms after the first failed (share violation) and only the WCF patch

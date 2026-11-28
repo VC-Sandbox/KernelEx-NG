@@ -385,3 +385,22 @@ Open after 136: .NET 3.0 SP2 install stops at the WiX custom action ExecSecureOb
 ("Error 0x80070103: failed to process CustomActionData", data "FontCache3.0.0.0\tServiceInstall\t\tINTERACTIVE\t16"),
 which sets the ACL of the PresentationFontCache service. A package merged by build 134/135 is stale: uninstall .NET 3.5
 SP1 and 3.0 SP2 and delete %WINDIR%\KEXMSI\netfx30a_x86_kx98p*.msi before reinstalling.
+
+## Build 137
+
+.NET 3.0 SP2 (and so .NET 3.5 SP1) installs completely; WPF/WF/WCS/XPS assemblies are in the GAC.
+
+1. WiX CustomActionData delimiter (msicompat_ext.c kex_MsiSetPropertyW / kex_MsiGetPropertyW, MSI ordinals 145 / 74).
+   WiX joins CustomActionData fields with MAGIC_MULTISZ_DELIM = 128 (U+0080, wcawrap.cpp). Windows Installer 2.0 on
+   Windows 98 keeps properties as ANSI text; U+0080 has no code page 1252 character and is stored as '?' (0x3F bytes in
+   KXMSI.LOG). WcaReadStringFromCaData then finds no delimiter, the second field read returns E_NOMOREITEMS
+   (0x80070103) and ExecSecureObjects logs "failed to process CustomActionData" (ExecXmlConfig failed the same way).
+   Fix: MsiSetPropertyW stores U+0080 as the character of ANSI byte 0x80 (computed at runtime, used only if it
+   round-trips; U+20AC on 1252); MsiGetPropertyW("CustomActionData") maps that character back to U+0080. A genuine
+   euro sign inside a WiX CustomActionData would also be read back as a delimiter.
+2. WiX ServiceConfig (msicompat_ext.c drop_service_config, applied in convert() to NT-only packages). Windows Installer
+   on 9x skips ServiceInstall/ServiceControl; ExecServiceConfig then failed on OpenServiceW (error 120) for
+   FontCache3.0.0.0 and rolled the install back. The ServiceConfig rows are deleted from the converted copy, so service
+   configuration is skipped like service installation. No service API changed for other programs.
+Probes: svcacl.c (service/ACL calls on 98: OpenServiceW, LookupAccountNameW, SetEntriesInAclW by name all return 120),
+tail.c (copy the end of a big log: uploads of several MB hang the VM's agent link).

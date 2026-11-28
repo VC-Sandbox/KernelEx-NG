@@ -1825,6 +1825,8 @@ MsiApplyPatchA MSI,MSI@174
 MsiApplyPatchW MSI,MSI@175
 MsiOpenPackageA MSI,MSI@93
 MsiOpenPackageW MSI,MSI@94
+MsiGetPropertyW MSI,MSI@74
+MsiSetPropertyW MSI,MSI@145
 MsiOpenPackageExA MSI,MSI@231
 MsiOpenPackageExW MSI,MSI@232
 MsiOpenDatabaseA MSI,MSI@91
