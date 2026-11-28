@@ -275,3 +275,84 @@ NTSTATUS KEXAPI kex_ApiSetQueryApiSetPresence(const KUSTR *name, BOOLEAN *presen
     *present = GetFileAttributesA(path) != 0xFFFFFFFF;
     return STATUS_SUCCESS;
 }
+
+/* ---------------------------------------------------------------- RTL_BITMAP (build 138)
+ * wpfgfx_v0300.dll (WPF 3.0 composition) imports RtlInitializeBitMap/RtlSetBits/RtlClearBits/RtlFindClearBitsAndSet
+ * statically, so PresentationCore's LoadWpfGfx failed (error 31) and no WPF program could start. Documented layout:
+ * SizeOfBitMap bits in an array of ULONGs, bit n = Buffer[n / 32] bit (n % 32). */
+typedef struct { ULONG SizeOfBitMap; ULONG *Buffer; } KRTL_BITMAP;
+static BOOL bit_get(const KRTL_BITMAP *b, ULONG i) { return (b->Buffer[i >> 5] >> (i & 31)) & 1; }
+static void bit_put(KRTL_BITMAP *b, ULONG i, BOOL v) { if (v) b->Buffer[i >> 5] |= 1UL << (i & 31); else b->Buffer[i >> 5] &= ~(1UL << (i & 31)); }
+VOID KEXAPI kex_RtlInitializeBitMap(KRTL_BITMAP *b, ULONG *buf, ULONG size) { b->SizeOfBitMap = size; b->Buffer = buf; }
+VOID KEXAPI kex_RtlSetBits(KRTL_BITMAP *b, ULONG start, ULONG n) { ULONG i; for (i = 0; i < n && start + i < b->SizeOfBitMap; i++) bit_put(b, start + i, TRUE); }
+VOID KEXAPI kex_RtlClearBits(KRTL_BITMAP *b, ULONG start, ULONG n) { ULONG i; for (i = 0; i < n && start + i < b->SizeOfBitMap; i++) bit_put(b, start + i, FALSE); }
+static ULONG find_clear(const KRTL_BITMAP *b, ULONG n, ULONG hint)
+{
+    ULONG s, i, pass;
+    if (!b || !n || n > b->SizeOfBitMap) return 0xFFFFFFFFUL;
+    if (hint >= b->SizeOfBitMap) hint = 0;
+    for (pass = 0; pass < 2; pass++)   /* from the hint to the end, then from 0 */
+        for (s = pass ? 0 : hint; s + n <= b->SizeOfBitMap && (pass == 0 || s < hint); s++) {
+            for (i = 0; i < n && !bit_get(b, s + i); i++) ;
+            if (i == n) return s;
+            s += i;
+        }
+    return 0xFFFFFFFFUL;
+}
+ULONG KEXAPI kex_RtlFindClearBits(KRTL_BITMAP *b, ULONG n, ULONG hint) { return find_clear(b, n, hint); }
+ULONG KEXAPI kex_RtlFindClearBitsAndSet(KRTL_BITMAP *b, ULONG n, ULONG hint)
+{ ULONG s = find_clear(b, n, hint); if (s != 0xFFFFFFFFUL) kex_RtlSetBits(b, s, n); return s; }
+BOOLEAN KEXAPI kex_RtlAreBitsClear(KRTL_BITMAP *b, ULONG start, ULONG n)
+{ ULONG i; if (start + n > b->SizeOfBitMap || start + n < start) return FALSE; for (i = 0; i < n; i++) if (bit_get(b, start + i)) return FALSE; return TRUE; }
+BOOLEAN KEXAPI kex_RtlAreBitsSet(KRTL_BITMAP *b, ULONG start, ULONG n)
+{ ULONG i; if (start + n > b->SizeOfBitMap || start + n < start) return FALSE; for (i = 0; i < n; i++) if (!bit_get(b, start + i)) return FALSE; return TRUE; }
+
+/* DbgPrintEx (cdecl, varargs): debug output filtered by component/level; there is no kernel debugger channel for it on
+ * Windows 98, so it is accepted and dropped (STATUS_SUCCESS), as on NT with the filter off. wpfgfx_v0300.dll imports it. */
+LONG __cdecl kex_c_DbgPrintEx(ULONG comp, ULONG level, const char *fmt, ...) { (void)comp; (void)level; (void)fmt; return 0; }
+
+/* GdiEntry13 = DdQueryDisplaySettingsUniqueness: a counter the NT DirectDraw kernel bumps on every display mode change;
+ * Windows 98's GDI32 has no such export. wpfgfx_v0300.dll imports it statically. Windows 98 has no DirectDraw kernel
+ * driver to count mode changes, so the value stays constant. */
+ULONG KEXAPI kex_GdiEntry13(void) { return 1; }
+
+/* RtlFreeSid (build 138): WPF (System.Windows.Media.Fonts' security helper) P/Invokes ntdll!RtlFreeSid for SIDs from
+ * AllocateAndInitializeSid. KernelEx's AllocateAndInitializeSid allocates them on the process heap; NULL = freed. */
+PVOID KEXAPI kex_RtlFreeSid(PVOID sid) { if (sid) HeapFree(GetProcessHeap(), 0, sid); return NULL; }
+
+/* SIDs for WPF (build 138): PresentationCore P/Invokes RtlAllocateAndInitializeSid / RtlInitializeSid / RtlFreeSid
+ * (font cache security). Documented SID layout: Revision 1, SubAuthorityCount, 6-byte IdentifierAuthority, ULONGs. */
+LONG KEXAPI kex_RtlInitializeSid(BYTE *sid, const BYTE *auth, UCHAR n)
+{
+    if (!sid || !auth || n > 15) return (LONG)0xC0000078L;   /* STATUS_INVALID_SID */
+    sid[0] = 1; sid[1] = n; memcpy(sid + 2, auth, 6); memset(sid + 8, 0, n * 4); return 0;
+}
+LONG KEXAPI kex_RtlAllocateAndInitializeSid(const BYTE *auth, UCHAR n, ULONG s0, ULONG s1, ULONG s2, ULONG s3, ULONG s4,
+                                            ULONG s5, ULONG s6, ULONG s7, PVOID *out)
+{
+    ULONG s[8]; BYTE *sid;
+    if (!auth || !out || n > 8) return (LONG)0xC000000DL;   /* STATUS_INVALID_PARAMETER */
+    if (!(sid = (BYTE *)HeapAlloc(GetProcessHeap(), 0, 8 + 4 * n))) return (LONG)0xC0000017L;   /* STATUS_NO_MEMORY */
+    s[0] = s0; s[1] = s1; s[2] = s2; s[3] = s3; s[4] = s4; s[5] = s5; s[6] = s6; s[7] = s7;
+    kex_RtlInitializeSid(sid, auth, n); memcpy(sid + 8, s, 4 * n); *out = sid; return 0;
+}
+
+/* NT local procedure call ports (build 138). Windows 98 has no LPC. PresentationCore's font cache client connects to
+ * the PresentationFontCache service's port and, when the service is not running, NT answers
+ * STATUS_OBJECT_NAME_NOT_FOUND and WPF keeps its font cache in the process. That is the answer here: there is no
+ * such port. The server-side calls have nothing to work on: STATUS_NOT_IMPLEMENTED. */
+#define K_NOPORT ((LONG)0xC0000034L)
+#define K_NOLPC  ((LONG)0xC0000002L)
+LONG KEXAPI kex_NtSecureConnectPort(PVOID h, PVOID name, PVOID qos, PVOID cv, PVOID sid, PVOID sv, PVOID ml, PVOID ci, PVOID cil)
+{ if (h) *(HANDLE *)h = NULL; return K_NOPORT; }
+LONG KEXAPI kex_NtConnectPort(PVOID h, PVOID name, PVOID qos, PVOID cv, PVOID sv, PVOID ml, PVOID ci, PVOID cil)
+{ if (h) *(HANDLE *)h = NULL; return K_NOPORT; }
+LONG KEXAPI kex_NtCreatePort(PVOID h, PVOID oa, ULONG a, ULONG b, ULONG c) { if (h) *(HANDLE *)h = NULL; return K_NOLPC; }
+LONG KEXAPI kex_NtCreateWaitablePort(PVOID h, PVOID oa, ULONG a, ULONG b, ULONG c) { if (h) *(HANDLE *)h = NULL; return K_NOLPC; }
+LONG KEXAPI kex_NtAcceptConnectPort(PVOID h, PVOID ctx, PVOID msg, BOOLEAN acc, PVOID sv, PVOID cv) { if (h) *(HANDLE *)h = NULL; return K_NOLPC; }
+LONG KEXAPI kex_NtCompleteConnectPort(HANDLE h) { return K_NOLPC; }
+LONG KEXAPI kex_NtRequestPort(HANDLE h, PVOID msg) { return K_NOLPC; }
+LONG KEXAPI kex_NtRequestWaitReplyPort(HANDLE h, PVOID msg, PVOID reply) { return K_NOLPC; }
+LONG KEXAPI kex_NtReplyPort(HANDLE h, PVOID msg) { return K_NOLPC; }
+LONG KEXAPI kex_NtReplyWaitReceivePort(HANDLE h, PVOID *ctx, PVOID reply, PVOID msg) { return K_NOLPC; }
+LONG KEXAPI kex_NtReplyWaitReceivePortEx(HANDLE h, PVOID *ctx, PVOID reply, PVOID msg, PVOID timeout) { return K_NOLPC; }

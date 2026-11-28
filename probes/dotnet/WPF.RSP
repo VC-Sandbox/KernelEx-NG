@@ -1,0 +1,4 @@
+/nologo /out:C:\T\WPF.EXE /t:winexe
+/lib:"C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0","C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5"
+/r:PresentationCore.dll /r:PresentationFramework.dll /r:WindowsBase.dll /r:System.Xml.dll
+C:\T\T.cs C:\T\wpf.cs

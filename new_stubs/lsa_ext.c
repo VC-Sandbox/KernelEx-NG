@@ -116,3 +116,109 @@ NTSTATUS_K KEXAPI kex_LsaQueryInformationPolicy(HANDLE h, int cls, PVOID *out)
     }
     }
 }
+
+/* ---------------------------------------------------------------- LsaLookupSids (build 138)
+ * .NET's WindowsIdentity.Name / SecurityIdentifier.Translate call ADVAPI32!LsaLookupSids (EntryPointNotFoundException
+ * on Windows 98, probe dotnet/core20.cs "WindowsIdentity / token"). Names for the SIDs this system reports
+ * (secsid_ext.c: user S-1-5-21-0-0-0-1000, primary group ...-513) and NT's well-known ones; anything else is unknown
+ * (SidTypeUnknown, STATUS_SOME_NOT_MAPPED / STATUS_NONE_MAPPED as on NT). Both results are LocalAlloc blocks. */
+typedef struct { BYTE rev, n, auth[6]; DWORD sub[15]; } KLSID;
+typedef struct { KLSA_STR Name; PVOID Sid; } KTRUST;
+typedef struct { ULONG Entries; KTRUST *Domains; } KREFDOMS;
+typedef struct { int Use; KLSA_STR Name; LONG DomainIndex; } KXNAME;
+static int lsa_auth(const KLSID *s) { return s->auth[0] | s->auth[1] | s->auth[2] | s->auth[3] | s->auth[4] ? -1 : s->auth[5]; }
+/* domain: 0 = this computer (S-1-5-21-0-0-0), 1 = NT AUTHORITY (S-1-5), 2 = BUILTIN (S-1-5-32), -1 = none */
+static const char *sid_name(const KLSID *s, int *dom, int *use, char *user)
+{
+    int a = lsa_auth(s);
+    *dom = -1; *use = 5;                                               /* SidTypeWellKnownGroup */
+    if (s->rev != 1) return NULL;
+    if (a == 1 && s->n == 1 && s->sub[0] == 0) return "Everyone";
+    if (a == 2 && s->n == 1 && s->sub[0] == 0) return "LOCAL";
+    if (a == 3 && s->n == 1 && s->sub[0] == 0) return "CREATOR OWNER";
+    if (a != 5) return NULL;
+    if (s->n == 4 && s->sub[0] == 21 && !s->sub[1] && !s->sub[2] && !s->sub[3]) { *dom = 0; *use = 3; return ""; }   /* the domain */
+    if (s->n == 5 && s->sub[0] == 21 && !s->sub[1] && !s->sub[2] && !s->sub[3]) {
+        *dom = 0;
+        if (s->sub[4] == 1000) { DWORD n = 64; *use = 1; if (!GetUserNameA(user, &n) || !user[0]) lstrcpyA(user, "User"); return user; }
+        if (s->sub[4] == 513) { *use = 2; return "None"; }
+        return NULL;
+    }
+    if (s->n == 1) {
+        *dom = 1;
+        switch (s->sub[0]) {
+        case 2: return "NETWORK"; case 4: return "INTERACTIVE"; case 11: return "Authenticated Users";
+        case 18: return "SYSTEM"; case 19: return "LOCAL SERVICE"; case 20: return "NETWORK SERVICE";
+        }
+        return NULL;
+    }
+    if (s->n == 2 && s->sub[0] == 32) {
+        *dom = 2; *use = 4;                                            /* SidTypeAlias */
+        switch (s->sub[1]) { case 544: return "Administrators"; case 545: return "Users"; case 546: return "Guests"; }
+    }
+    return NULL;
+}
+static DWORD ws_put(KLSA_STR *u, const char *s, WCHAR *at)
+{
+    int n = MultiByteToWideChar(CP_ACP, 0, s, -1, at, 64);
+    if (n < 1) n = 1;
+    u->Buffer = at; u->Length = (USHORT)((n - 1) * 2); u->MaximumLength = (USHORT)(n * 2);
+    return (DWORD)n;
+}
+NTSTATUS_K KEXAPI kex_LsaLookupSids(HANDLE h, ULONG count, PVOID *sids, KREFDOMS **doms, KXNAME **names)
+{
+    char user[64], comp[MAX_COMPUTERNAME_LENGTH + 1]; DWORD cn = sizeof(comp); ULONG i, mapped = 0; int used[3] = { -1, -1, -1 }, nd = 0;
+    KXNAME *nm; KREFDOMS *rd; WCHAR *ws; BYTE *sp;
+    static const BYTE dsid[3][16] = { { 1, 4, 0,0,0,0,0,5, 21,0,0,0, 0,0,0,0 }, { 1, 0, 0,0,0,0,0,5 }, { 1, 1, 0,0,0,0,0,5, 32,0,0,0 } };
+    if (!sids || !doms || !names || !count || count > 1000) return ST_INVALID_PARAM;
+    *doms = NULL; *names = NULL;
+    if (!GetComputerNameA(comp, &cn)) lstrcpyA(comp, "COMPUTER");
+    if (!(nm = (KXNAME *)LocalAlloc(LPTR, count * (sizeof(KXNAME) + 64 * sizeof(WCHAR))))) return ST_NO_MEMORY;
+    if (!(rd = (KREFDOMS *)LocalAlloc(LPTR, sizeof(KREFDOMS) + 3 * (sizeof(KTRUST) + 32 * sizeof(WCHAR) + 28 * sizeof(BYTE) / 1 + 32)))) { LocalFree(nm); return ST_NO_MEMORY; }
+    ws = (WCHAR *)(nm + count);
+    rd->Domains = (KTRUST *)(rd + 1);
+    for (i = 0; i < count; i++) {
+        int dom, use; const char *n = sids[i] ? sid_name((const KLSID *)sids[i], &dom, &use, user) : NULL;
+        if (!n) { nm[i].Use = 8; nm[i].DomainIndex = -1; ws_put(&nm[i].Name, "", ws); ws += 64; continue; }
+        mapped++; nm[i].Use = use; ws_put(&nm[i].Name, n, ws); ws += 64;
+        if (dom < 0) { nm[i].DomainIndex = -1; continue; }
+        if (used[dom] < 0) used[dom] = nd++;
+        nm[i].DomainIndex = used[dom];
+    }
+    rd->Entries = (ULONG)nd;
+    {   WCHAR *dw = (WCHAR *)(rd->Domains + 3); BYTE *ds; int d;
+        sp = (BYTE *)(dw + 3 * 32);
+        for (d = 0; d < 3; d++) {
+            if (used[d] < 0) continue;
+            ws_put(&rd->Domains[used[d]].Name, d == 0 ? comp : d == 1 ? "NT AUTHORITY" : "BUILTIN", dw + 32 * used[d]);
+            ds = sp + 28 * used[d]; memcpy(ds, dsid[d], 16); rd->Domains[used[d]].Sid = ds;
+        }
+    }
+    *names = nm; *doms = rd;
+    return mapped == count ? ST_OK : mapped ? (NTSTATUS_K)0x00000107L : (NTSTATUS_K)0xC0000073L;
+}
+
+/* LsaGetLogonSessionData (SECUR32, build 138): .NET's WindowsIdentity.AuthenticationType reads the logon session of
+ * the token (EntryPointNotFoundException on Windows 98). The one logon session of this system: an interactive NTLM
+ * logon of the user secsid_ext.c reports (S-1-5-21-0-0-0-1000) on this computer. XP's
+ * SECURITY_LOGON_SESSION_DATA layout (80 bytes), one LocalAlloc block freed by LsaFreeReturnBuffer. */
+typedef struct {
+    ULONG Size; DWORD LogonIdLo; LONG LogonIdHi; KLSA_STR UserName, LogonDomain, AuthenticationPackage;
+    ULONG LogonType, Session; PVOID Sid; FILETIME LogonTime; KLSA_STR LogonServer, DnsDomainName, Upn;
+} KLOGON;
+NTSTATUS_K KEXAPI kex_LsaGetLogonSessionData(PVOID luid, KLOGON **out)
+{
+    char user[64], comp[MAX_COMPUTERNAME_LENGTH + 1]; DWORD n = sizeof(user), cn = sizeof(comp); KLOGON *d; WCHAR *w; BYTE *sid;
+    static const BYTE usid[] = { 1, 5, 0,0,0,0,0,5, 21,0,0,0, 0,0,0,0, 0,0,0,0, 0,0,0,0, 0xE8,3,0,0 };
+    if (!out) return ST_INVALID_PARAM;
+    if (!GetUserNameA(user, &n) || !user[0]) lstrcpyA(user, "User");
+    if (!GetComputerNameA(comp, &cn)) lstrcpyA(comp, "COMPUTER");
+    if (!(d = (KLOGON *)LocalAlloc(LPTR, sizeof(KLOGON) + 4 * 64 * sizeof(WCHAR) + sizeof(usid)))) return ST_NO_MEMORY;
+    w = (WCHAR *)(d + 1); sid = (BYTE *)(w + 4 * 64);
+    d->Size = sizeof(KLOGON); if (luid) { d->LogonIdLo = ((DWORD *)luid)[0]; d->LogonIdHi = ((LONG *)luid)[1]; }
+    ws_put(&d->UserName, user, w); ws_put(&d->LogonDomain, comp, w + 64); ws_put(&d->AuthenticationPackage, "NTLM", w + 128);
+    ws_put(&d->LogonServer, comp, w + 192);
+    d->LogonType = 2; d->Session = 0; memcpy(sid, usid, sizeof(usid)); d->Sid = sid;   /* Interactive */
+    GetSystemTimeAsFileTime(&d->LogonTime);
+    *out = d; return ST_OK;
+}

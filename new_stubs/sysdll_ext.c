@@ -855,7 +855,7 @@ BOOLEAN KEXAPI kex_GetUserNameExW(int fmt, LPWSTR name, PULONG size) { SetLastEr
 BOOLEAN KEXAPI kex_GetUserNameExA(int fmt, LPSTR name, PULONG size) { SetLastError(1332); return FALSE; }
 NTSTATUS KEXAPI kex_LsaConnectUntrusted(PHANDLE h) { if (h) *h = NULL; return STATUS_NOT_IMPLEMENTED; }
 NTSTATUS KEXAPI kex_LsaDeregisterLogonProcess(HANDLE h) { return STATUS_SUCCESS; }
-NTSTATUS KEXAPI kex_LsaFreeReturnBuffer(PVOID p) { return STATUS_SUCCESS; }
+NTSTATUS KEXAPI kex_LsaFreeReturnBuffer(PVOID p) { if (p) LocalFree(p); return STATUS_SUCCESS; }   /* build 138: LsaGetLogonSessionData blocks */
 NTSTATUS KEXAPI kex_LsaLogonUser(HANDLE h, PVOID origin, int type, ULONG pkg, PVOID auth, ULONG authlen, PVOID groups,
                                  PVOID src, PVOID *prof, PULONG proflen, PVOID luid, PHANDLE tok, PVOID quotas, NTSTATUS *sub)
 { return STATUS_NOT_IMPLEMENTED; }

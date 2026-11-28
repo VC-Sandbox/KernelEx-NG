@@ -1,0 +1,4 @@
+/nologo /out:C:\T\NET35.EXE /t:exe
+/lib:"C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0","C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5"
+/r:System.Core.dll /r:System.Xml.Linq.dll /r:System.Data.DataSetExtensions.dll /r:System.Data.dll /r:System.Xml.dll
+C:\T\T.cs C:\T\net35.cs

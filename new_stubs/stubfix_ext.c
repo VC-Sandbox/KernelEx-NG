@@ -116,6 +116,15 @@ BOOL KEXAPI kex_CryptAcquireContextA(ULONG_PTR *prov, LPCSTR container, LPCSTR p
     if (!f) f = (T_CACA)(void *)kex_sysproc("ADVAPI32.DLL", "CryptAcquireContextA");
     if (!f) { SetLastError(ERROR_CALL_NOT_IMPLEMENTED); return FALSE; }
     r = f(prov, container, provider, type, flags & ~0x40UL);
+    /* build 138: PROV_RSA_AES (24) is an XP SP3 provider type; Windows 98 defines types 1, 3 and 13 only (probe
+     * cryptprov.c: 24 -> NTE_PROV_TYPE_NOT_DEF, the AES provider by name -> NTE_KEYSET_NOT_DEF). .NET 2.0 SP2 asks for it
+     * on "XP or later" for its static handle (SHA1CryptoServiceProvider, RSA, Remoting identities), so all of those
+     * failed with 0x80090017. The Enhanced RSA provider (type 1) offers the same RSA/SHA-1/MD5/3DES; AES keys stay
+     * unavailable through CryptoAPI. */
+    if (!r && type == 24 && (GetLastError() == 0x80090017UL || GetLastError() == 0x80090019UL)) {
+        r = f(prov, container, "Microsoft Enhanced Cryptographic Provider v1.0", 1, flags & ~0x40UL);
+        if (!r) r = f(prov, container, NULL, 1, flags & ~0x40UL);
+    }
     if (!r) {   /* build 132: which provider a program wanted (the .NET 4 strong-name check) */
         static LONG n; DWORD e = GetLastError();
         if (InterlockedIncrement(&n) <= 30) {
@@ -180,4 +189,56 @@ BOOL KEXAPI kex_CryptSignHashW(ULONG_PTR hash, DWORD key, LPCWSTR desc, DWORD fl
     if (!f) { SetLastError(ERROR_CALL_NOT_IMPLEMENTED); return FALSE; }
     if (!to_a(desc, d, sizeof(d))) { SetLastError(ERROR_INVALID_PARAMETER); return FALSE; }
     return f(hash, key, desc ? d : NULL, flags, sig, len);
+}
+
+/* ---------------------------------------------------------------- service names (build 138)
+ * Windows 98 has no NT service manager; KernelEx's OpenSCManager returns a placeholder handle, and the per-service
+ * calls below were Windows 98 stubs failing with ERROR_CALL_NOT_IMPLEMENTED. .NET's ServiceController turns that into
+ * "Service was not found" with an unexpected inner error, which WCF's ServiceModelReg (IisHelper.CheckWasInstalled,
+ * probe iishelper.cs) does not expect, so WCF never registered its machine.config sections and every WCF/WF program
+ * failed with "Unrecognized configuration section system.serviceModel". With no services on the system, the answer an
+ * NT service manager gives is ERROR_SERVICE_DOES_NOT_EXIST. */
+#define KEX_NO_SERVICE() do { SetLastError(1060 /* ERROR_SERVICE_DOES_NOT_EXIST */); } while (0)
+ULONG_PTR KEXAPI kex_OpenServiceA(ULONG_PTR scm, LPCSTR name, DWORD access) { KEX_NO_SERVICE(); return 0; }
+ULONG_PTR KEXAPI kex_OpenServiceW(ULONG_PTR scm, LPCWSTR name, DWORD access) { KEX_NO_SERVICE(); return 0; }
+BOOL KEXAPI kex_GetServiceKeyNameA(ULONG_PTR scm, LPCSTR disp, LPSTR key, DWORD *cch) { KEX_NO_SERVICE(); return FALSE; }
+BOOL KEXAPI kex_GetServiceKeyNameW(ULONG_PTR scm, LPCWSTR disp, LPWSTR key, DWORD *cch) { KEX_NO_SERVICE(); return FALSE; }
+BOOL KEXAPI kex_GetServiceDisplayNameA(ULONG_PTR scm, LPCSTR key, LPSTR disp, DWORD *cch) { KEX_NO_SERVICE(); return FALSE; }
+BOOL KEXAPI kex_GetServiceDisplayNameW(ULONG_PTR scm, LPCWSTR key, LPWSTR disp, DWORD *cch) { KEX_NO_SERVICE(); return FALSE; }
+/* CloseServiceHandle (build 138): closing KernelEx's placeholder service manager handle (0xCAFE, from OpenSCManager)
+ * failed with Windows 98's ERROR_CALL_NOT_IMPLEMENTED stub, and WCF's ServiceManagerHandle.ReleaseHandle throws on
+ * that (ServiceModelReg's InfoCard component, probe smrcomp.cs). That handle closes; no other service handle exists. */
+BOOL KEXAPI kex_CloseServiceHandle(ULONG_PTR h)
+{
+    if (h == 0xCAFE) return TRUE;
+    SetLastError(ERROR_INVALID_HANDLE); return FALSE;
+}
+
+/* ---------------------------------------------------------------- event log (build 138)
+ * Windows 98 has no event log; its ADVAPI32 RegisterEventSourceW/ReportEventW are stubs. NT programs write their
+ * diagnostics there - the .NET runtime puts the message of Environment.FailFast (WPF's Invariant.Assert) into it, and
+ * that message was the only description of why a WPF program ended with 0x80131623. Events go into the program's
+ * KEXCRASH log (source, type, id, strings) instead; the handle is a placeholder. */
+#define KEX_EVENTLOG ((ULONG_PTR)0x45564C47UL)   /* "EVLG" */
+ULONG_PTR KEXAPI kex_RegisterEventSourceW(LPCWSTR server, LPCWSTR source) { return KEX_EVENTLOG; }
+ULONG_PTR KEXAPI kex_RegisterEventSourceA(LPCSTR server, LPCSTR source) { return KEX_EVENTLOG; }
+BOOL KEXAPI kex_DeregisterEventSource(ULONG_PTR h) { if (h == KEX_EVENTLOG) return TRUE; SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+BOOL KEXAPI kex_ReportEventW(ULONG_PTR h, WORD type, WORD cat, DWORD id, PVOID sid, WORD n, DWORD size, LPCWSTR *s, PVOID data)
+{
+    void kex_crashnote(const char *what, DWORD a, DWORD b, DWORD c, DWORD d); void kex_crashlog_text(const char *t);
+    char buf[1024]; WORD i;
+    if (h != KEX_EVENTLOG) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    kex_crashnote("event log entry (type, category, id, strings)", type, cat, id, n);
+    for (i = 0; i < n && s && i < 8; i++)
+        if (s[i] && WideCharToMultiByte(CP_ACP, 0, s[i], -1, buf, sizeof(buf) - 1, NULL, NULL)) { buf[sizeof(buf) - 1] = 0; kex_crashlog_text(buf); }
+    return TRUE;
+}
+BOOL KEXAPI kex_ReportEventA(ULONG_PTR h, WORD type, WORD cat, DWORD id, PVOID sid, WORD n, DWORD size, LPCSTR *s, PVOID data)
+{
+    void kex_crashnote(const char *what, DWORD a, DWORD b, DWORD c, DWORD d); void kex_crashlog_text(const char *t);
+    WORD i;
+    if (h != KEX_EVENTLOG) { SetLastError(ERROR_INVALID_HANDLE); return FALSE; }
+    kex_crashnote("event log entry (type, category, id, strings)", type, cat, id, n);
+    for (i = 0; i < n && s && i < 8; i++) if (s[i]) kex_crashlog_text(s[i]);
+    return TRUE;
 }

@@ -45,6 +45,37 @@ typedef struct { UINT cbSize; int h, v, wrap; LOGFONTW lf; } K_ICMW;
 typedef struct { UINT cbSize; int h, v, wrap; LOGFONTA lf; } K_ICMA;
 typedef struct { UINT cbSize; DWORD dwFlags; LPWSTR scheme; } K_HCW;
 
+/* build 138: GET actions added in Windows 2000/XP that Windows 98's USER32 rejects (probe spiall.c: 0x0062-0x0066,
+ * 0x1012-0x1026, 0x2000-0x2012 return FALSE). WPF's SystemParameters throws a Win32Exception for every action that
+ * fails, so no WPF window could be created ("The operation completed successfully" from MouseHoverTimeMilliseconds).
+ * Windows 98 has none of these settings; they are answered with the Windows XP default values (classic look: no
+ * fades, shadows or ClearType), only when the system call failed. */
+static BOOL nt_default(UINT act, PVOID pv)
+{
+    DWORD v;
+    if (!pv) return FALSE;
+    switch (act) {
+    case 0x0062: case 0x0064: v = 4; break;              /* MOUSEHOVERWIDTH / MOUSEHOVERHEIGHT */
+    case 0x0066: v = 400; break;                         /* MOUSEHOVERTIME */
+    case 0x006C: v = 3; break;                           /* WHEELSCROLLCHARS */
+    case 0x100C: case 0x100E: case 0x1012: case 0x1014: case 0x1016: case 0x1018: case 0x101A: case 0x101C:
+    case 0x101E: case 0x1020: case 0x1022: case 0x1024: case 0x1026: case 0x1040: case 0x1044: case 0x1046:
+        v = 0; break;                                    /* ACTIVEWNDTRKZORDER ... CLEARTYPE, SPEECHRECOGNITION: off */
+    case 0x103E: case 0x1042: v = 1; break;              /* UIEFFECTS, CLIENTAREAANIMATION: on */
+    case 0x2000: v = 200000; break;                      /* FOREGROUNDLOCKTIMEOUT */
+    case 0x2002: v = 0; break;                           /* ACTIVEWNDTRKTIMEOUT */
+    case 0x2004: v = 3; break;                           /* FOREGROUNDFLASHCOUNT */
+    case 0x2006: case 0x200E: case 0x2010: v = 1; break; /* CARETWIDTH, FOCUSBORDERWIDTH / HEIGHT */
+    case 0x2008: v = 1200; break;                        /* MOUSECLICKLOCKTIME */
+    case 0x200A: v = 1; break;                           /* FONTSMOOTHINGTYPE = FE_FONTSMOOTHINGSTANDARD */
+    case 0x200C: v = 1400; break;                        /* FONTSMOOTHINGCONTRAST */
+    case 0x2012: v = 1; break;                           /* FONTSMOOTHINGORIENTATION = RGB */
+    case 0x2016: v = 5; break;                           /* MESSAGEDURATION */
+    default: return FALSE;
+    }
+    *(DWORD *)pv = v; SetLastError(0); return TRUE;
+}
+
 BOOL KEXAPI kex_SystemParametersInfoW(UINT act, UINT up, PVOID pv, UINT ini)
 {
     switch (act) {
@@ -106,5 +137,7 @@ BOOL KEXAPI kex_SystemParametersInfoW(UINT act, UINT up, PVOID pv, UINT ini)
         return kex_SystemParametersInfoA(act, up, buf, ini);
     }
     }
-    return kex_SystemParametersInfoA(act, up, pv, ini);
+    {   BOOL r = kex_SystemParametersInfoA(act, up, pv, ini);
+        return r ? r : nt_default(act, pv);
+    }
 }

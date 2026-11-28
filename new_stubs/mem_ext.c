@@ -25,7 +25,8 @@
 
 void kex_trace(const char *what, DWORD a, DWORD b, DWORD c, DWORD d);
 BOOL kex_bigsec_owns(LPCVOID a, SIZE_T n);                          /* veh_ext.c */
-BOOL kex_laa_owns(LPCVOID a, SIZE_T n);            /* laa_ext.c (build 123): blocks above 2 GB of this process */
+BOOL kex_laa_owns(LPCVOID a, SIZE_T n);
+BOOL kex_shm_in_view(LPCVOID a, SIZE_T n);                         /* shm_ext.c (build 138) */            /* laa_ext.c (build 123): blocks above 2 GB of this process */
 BOOL kex_laa_is_base(LPCVOID a);
 LPVOID kex_laa_lend(SIZE_T n, DWORD type, DWORD prot);
 LPVOID kex_laa_lend_at(LPVOID a, SIZE_T n, DWORD type, DWORD prot);
@@ -221,12 +222,20 @@ LPVOID KEXAPI kex_VirtualAlloc(LPVOID a, SIZE_T n, DWORD type, DWORD prot)
         return a;
     }
     if (kex_peb_active() && a && !(type & 0x08000000) && ((ULONG_PTR)a >= SHARED_ARENA || (ULONG_PTR)a + n > SHARED_ARENA) &&
-        !kex_laa_owns(a, n)) {                      /* build 123: inside its own blocks above 2 GB it may commit etc. */
+        !kex_laa_owns(a, n) &&
+        /* build 138: committing pages of the program's own file-mapping view stays allowed. On NT that view is ordinary
+         * user memory; Windows 98 maps every pagefile view into the shared arena. WPF's font cache creates a
+         * SEC_RESERVE section and commits it page by page; the refusal made FileMapping.Commit throw
+         * OutOfMemoryException (probe dotnet/fmap.cs, crash notes "VirtualAlloc refused in the shared arena") */
+        !((type & MEM_COMMIT) && !(type & MEM_RESERVE) && kex_shm_in_view(a, n))) {                      /* build 123: inside its own blocks above 2 GB it may commit etc. */
         if (type & MEM_RESERVE) {                   /* build 123: allocator retrying at an aligned address up there */
             LPVOID r2 = kex_laa_lend_at(a, n, type & ~(DWORD)K_MEM_LARGE_PAGES, p);
             if (r2) return r2;
         }
         kex_trace("  refused: shared/system arena", 0, 0, 0, 0);
+        {   static LONG nr; void kex_crashnote(const char *what, DWORD a, DWORD b, DWORD c, DWORD d);
+            if (InterlockedIncrement(&nr) <= 10) kex_crashnote("VirtualAlloc refused in the shared arena (address, size, type, in own view)",
+                                                              (DWORD)(ULONG_PTR)a, (DWORD)n, type, kex_shm_in_view(a, n)); }
         SetLastError(ERROR_INVALID_ADDRESS); return NULL;
     }
     type &= ~(DWORD)K_MEM_LARGE_PAGES;
@@ -254,6 +263,12 @@ LPVOID KEXAPI kex_VirtualAlloc(LPVOID a, SIZE_T n, DWORD type, DWORD prot)
                 SetLastError(ERROR_SUCCESS);
                 return a;
             }
+        }
+        if ((type & MEM_COMMIT) && !(type & MEM_RESERVE)) {   /* build 138: every refused commit, with the page state */
+            static LONG nl; void kex_crashnote(const char *what, DWORD a, DWORD b, DWORD c, DWORD d);
+            MEMORY_BASIC_INFORMATION m0; ZeroMemory(&m0, sizeof(m0)); if (a) VirtualQuery(a, &m0, sizeof(m0));
+            if (InterlockedIncrement(&nl) <= 20) kex_crashnote("VirtualAlloc MEM_COMMIT refused (address, size, error, state|type>>8)",
+                                                              (DWORD)(ULONG_PTR)a, (DWORD)n, le, m0.State | (m0.Type >> 8));
         }
         /* build 61: a reservation at an address that is already taken - NT says ERROR_INVALID_ADDRESS (487),
          * Windows 98 says ERROR_NOT_ENOUGH_MEMORY (8), which reads like a real out-of-memory. PartitionAlloc

@@ -1,0 +1,4 @@
+/nologo /out:C:\T\CORE20.EXE /t:exe
+/lib:"C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0","C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5"
+
+C:\T\T.cs C:\T\core20.cs

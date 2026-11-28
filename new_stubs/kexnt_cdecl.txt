@@ -145,3 +145,4 @@ wcstoul kex_ntc_wcstoul
 _allshl kex_allshl
 _aullshr kex_aullshr
 _allshr kex_allshr
+DbgPrintEx kex_c_DbgPrintEx

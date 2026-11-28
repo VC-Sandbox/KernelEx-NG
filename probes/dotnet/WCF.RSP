@@ -1,0 +1,4 @@
+/nologo /out:C:\T\WCF.EXE /t:exe
+/lib:"C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0","C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5"
+/r:System.ServiceModel.dll /r:System.Runtime.Serialization.dll /r:System.ServiceModel.Web.dll
+C:\T\T.cs C:\T\wcf.cs

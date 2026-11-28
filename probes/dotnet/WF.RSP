@@ -1,0 +1,4 @@
+/nologo /out:C:\T\WF.EXE /t:exe
+/lib:"C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.0","C:\Program Files\Reference Assemblies\Microsoft\Framework\v3.5"
+/r:System.Workflow.Activities.dll /r:System.Workflow.ComponentModel.dll /r:System.Workflow.Runtime.dll
+C:\T\T.cs C:\T\wf.cs

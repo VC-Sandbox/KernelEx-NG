@@ -48,6 +48,23 @@ Explorer crash diagnosis (EXPLDBG) - independent of KernelEx-NG
   c) The log is appended after each crash. Run EXPLDBG.BAT again after each Windows start.
 
 Build history (most recent first)
+  Build 138 (2026-11-28): .NET 2.0-3.5 runtime fixes from a stress test (probes/dotnet). Core .NET 2.0 (25/25),
+    LINQ/.NET 3.5 (10/10) and Windows Forms/GDI+ (2/2) pass. Fixed, each proven with a probe first:
+    - CryptAcquireContext PROV_RSA_AES (XP SP3 type 24) falls back to the Enhanced RSA provider (.NET hashing, RSA,
+      Remoting identities failed with 0x80090017).
+    - Service calls answer like a service manager with no services (OpenService, GetServiceKeyName/DisplayName ->
+      ERROR_SERVICE_DOES_NOT_EXIST; CloseServiceHandle of the placeholder manager handle succeeds).
+    - SystemParametersInfoW: Windows 2000/XP GET actions Windows 98 rejects return the XP defaults (WPF threw).
+    - ntdll: RtlInitializeBitMap/SetBits/ClearBits/FindClearBits(AndSet)/AreBits*, DbgPrintEx, RtlFreeSid,
+      RtlAllocateAndInitializeSid, RtlInitializeSid, the NT LPC port calls (no port: as NT without the font cache
+      service); GDI32 GdiEntry13. wpfgfx_v0300.dll (WPF) can load now.
+    - ADVAPI32 LsaLookupSids, SECUR32 LsaGetLogonSessionData (WindowsIdentity.Name / AuthenticationType).
+    - VirtualAlloc: committing pages of the program's own file-mapping view is allowed (WPF font cache).
+    - Event log calls write the event into the program's KEXCRASH log (Windows 98 has none).
+    Still open: WPF/XPS stop with a CLR fatal error while parsing XAML; WF (NullReferenceException in
+    DebugController.InitializeProcessSecurity); WCF client cannot connect to its own net.tcp host; WCF's
+    ServiceModelReg stops with "The handle is invalid" (machine.config lacked the system.serviceModel declarations).
+
   Build 137 (2026-11-28): .NET 3.5 SP1 installs completely on Windows 98 SE, with .NET 3.0 SP2 WCF, WF, WPF,
     CardSpace and XPS. Two fixes:
     - WiX custom actions separate their CustomActionData fields with character U+0080, which Windows 98's ANSI

@@ -404,3 +404,28 @@ SP1 and 3.0 SP2 and delete %WINDIR%\KEXMSI\netfx30a_x86_kx98p*.msi before reinst
    configuration is skipped like service installation. No service API changed for other programs.
 Probes: svcacl.c (service/ACL calls on 98: OpenServiceW, LookupAccountNameW, SetEntriesInAclW by name all return 120),
 tail.c (copy the end of a big log: uploads of several MB hang the VM's agent link).
+
+## Build 138 - .NET runtime stress test (probes/dotnet)
+
+Suite: probes/dotnet/{core20,net35,wf,wcf,wpf,xps,winforms}.cs with T.cs (PASS/FAIL per check, C:\T\<NAME>.LOG),
+built in the VM with the 3.5 csc and response files (*.RSP, BUILD.BAT). Results on build 138: CORE20 25/25, NET35 10/10,
+WINFORMS 2/2. Each fix was proven first:
+- CryptoAPI: .NET 2.0 SP2 asks for PROV_RSA_AES (24) on "XP" (crash note: type 0x18, error 80090017; probe cryptprov.c:
+  Windows 98 defines types 1, 3, 13). stubfix_ext.c falls back to the Enhanced RSA provider (type 1).
+- Services: Windows 98 stubs (error 120) broke .NET's ServiceController and WCF's ServiceModelReg (probe iishelper.cs,
+  smrcomp.cs). OpenService/GetServiceKeyName/GetServiceDisplayName -> ERROR_SERVICE_DOES_NOT_EXIST, CloseServiceHandle of
+  the 0xCAFE manager handle -> TRUE.
+- SystemParametersInfoW (spi_ext.c nt_default): XP defaults for 2000/XP GET actions 98 rejects (probe spiall.c).
+- wpfgfx_v0300.dll static imports (KEXIMP): RTL bitmap functions, DbgPrintEx (cdecl), GdiEntry13; PresentationCore
+  P/Invokes (strings of the WPF binaries): RtlAllocateAndInitializeSid/RtlInitializeSid/RtlFreeSid, Nt*Port (LPC: no
+  port -> STATUS_OBJECT_NAME_NOT_FOUND / STATUS_NOT_IMPLEMENTED).
+- LsaLookupSids, LsaGetLogonSessionData (lsa_ext.c), LsaFreeReturnBuffer frees them.
+- WPF FileMapping.Commit: kexnt refused VirtualAlloc(MEM_COMMIT) in the shared arena, and the program's own view was
+  not recognised because a view mapped with size 0 was recorded as 0 bytes (shm_ext.c view_add). Probe fmap.cs.
+- Event log: RegisterEventSource/ReportEvent write to the KEXCRASH log (that is how the CLR's "Unrecoverable system
+  error" of the WPF run was seen).
+VM note: machine.config of run2 held .NET 3.5's <system.serviceModel> block without 3.0's declarations (ServiceModelReg
+had failed in the 3.0 install). The block was set aside (C:\T\MACHINE.BAK) and the declarations were written by the
+WCF ConfigurationHandlersInstallComponent (probe smrcomp.cs).
+Open: WPF/XPS CLR fatal error during XAML parse (C++ exception from MSCORJIT first), WF InitializeProcessSecurity NRE,
+WCF net.tcp client connection refused, ServiceModelReg "The handle is invalid".

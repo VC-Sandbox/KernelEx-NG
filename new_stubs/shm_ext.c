@@ -402,9 +402,11 @@ static LONG view_add(void *a, DWORD h, DWORD off, DWORD n, DWORD ebp)
     if (free_slot >= 0) {
         g_views[free_slot].addr = a; g_views[free_slot].count = 1; g_views[free_slot].exposed = 0;
         g_views[free_slot].bytes = n;
-        if (kex_trace_enabled()) {
+        if (!n || kex_trace_enabled()) {   /* build 138: n = 0 maps the whole section - its size is needed by kex_shm_in_view */
             MEMORY_BASIC_INFORMATION m;
             if (VirtualQuery(a, &m, sizeof(m)) && m.RegionSize) g_views[free_slot].bytes = (DWORD)m.RegionSize;
+        }
+        if (kex_trace_enabled()) {
             view_stack(ebp, g_views[free_slot].st);
         } else ZeroMemory(g_views[free_slot].st, sizeof(g_views[free_slot].st));
     } else InterlockedIncrement((LONG *)&g_n_noslot);
@@ -911,3 +913,15 @@ DWORD kex_shm_dib_at(DWORD a, DWORD n, DWORD *count)
 /* build 38b: for kextest - Windows' view counting as probed (1/0), and the kexnt counters (see kex_shm_counts) */
 LONG KEXAPI kex_KexShmRefcounted(void) { return (LONG)kex_shm_refcounted(); }
 LONG KEXAPI kex_KexShmStats(DWORD *v) { if (v) kex_shm_counts(v); return 13; }
+
+/* build 138: is [a, a+n) inside a live view of this process? (kex_VirtualAlloc: committing pages of one's own
+ * SEC_RESERVE view is an NT operation, even though the view lives in Windows 98's shared arena) */
+BOOL kex_shm_in_view(LPCVOID a, SIZE_T n)
+{
+    int i; ULONG_PTR s = (ULONG_PTR)a, e = s + n;
+    for (i = 0; i < NVIEWS; i++) {
+        ULONG_PTR v = (ULONG_PTR)g_views[i].addr;
+        if (v && s >= v && e <= v + g_views[i].bytes && e >= s) return TRUE;
+    }
+    return FALSE;
+}
