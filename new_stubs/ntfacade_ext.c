@@ -153,14 +153,26 @@ BOOL KEXAPI kex_GetModuleHandleExW(DWORD f, LPCWSTR n, HMODULE *out)
     if (!p) { SetLastError(ERROR_PROC_NOT_FOUND); return FALSE; }
     return p(f, n, out);
 }
+DWORD kex_climg_name(HMODULE h, char *buf, DWORD len);   /* climg_ext.c */
+BOOL kex_climg_free(HMODULE h);
 DWORD KEXAPI kex_GetModuleFileNameA(HMODULE h, LPSTR buf, DWORD len)
 {
     PREV(T_GMFA, p, "GetModuleFileNameA");
+    {   DWORD r = kex_climg_name(h, buf, len); if (r != (DWORD)-1) return r; }
     return p ? p(kex_ntdll_real(h), buf, len) : 0;
 }
 DWORD KEXAPI kex_GetModuleFileNameW(HMODULE h, LPWSTR buf, DWORD len)
 {
     PREV(T_GMFW, p, "GetModuleFileNameW");
+    {   char a[MAX_PATH]; DWORD r = kex_climg_name(h, a, MAX_PATH);
+        if (r != (DWORD)-1) {
+            int n = MultiByteToWideChar(CP_ACP, 0, a, -1, NULL, 0);
+            if (!buf || !len) return 0;
+            if (n <= 0) { buf[0] = 0; return 0; }
+            if ((DWORD)n > len) { MultiByteToWideChar(CP_ACP, 0, a, -1, buf, (int)len); buf[len - 1] = 0; SetLastError(ERROR_INSUFFICIENT_BUFFER); return len; }
+            MultiByteToWideChar(CP_ACP, 0, a, -1, buf, n);
+            return (DWORD)(n - 1);
+        } }
     if (!p) { SetLastError(ERROR_PROC_NOT_FOUND); return 0; }
     return p(kex_ntdll_real(h), buf, len);
 }
@@ -168,5 +180,6 @@ BOOL KEXAPI kex_FreeLibrary(HMODULE h)
 {
     PREV(T_FL, p, "FreeLibrary");
     if (g_fac && h == (HMODULE)g_fac) return TRUE;     /* the facade is never "loaded" */
+    if (kex_climg_free(h)) return TRUE;                   /* climg_ext.c: an assembly mapped without its entry point */
     return p ? p(h) : FALSE;
 }

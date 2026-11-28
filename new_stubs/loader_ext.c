@@ -154,10 +154,12 @@ static LPSTR w_to_a(LPCWSTR w, char *buf, int cb)
 /* build 125-131 loaded a moved temp copy of a DLL without relocations here (load_unrelocatable). Removed in build 132:
  * Windows 98's refusal to move such a DLL is fixed in KERNEL32 itself (veh_ext.c, kex_KexLoaderFix). */
 
+HMODULE kex_climg_load(const char *name, DWORD flags);     /* climg_ext.c (build 132) */
 HMODULE KEXAPI kex_LoadLibraryExA(LPCSTR name, HANDLE file, DWORD flags)
 {
     HMODULE h;
     kex_trace(name ? name : "LoadLibraryExA(null)", flags, 0, 0, 0);
+    if ((h = kex_climg_load(name, flags))) return h;          /* .NET assembly, DONT_RESOLVE_DLL_REFERENCES: no entry point */
     kex_tls_before_load();
     if (!(flags & 0x62)) kex_bigsec_prepare(name);
     kex_k32_clear_load_message();
