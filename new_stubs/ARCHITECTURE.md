@@ -366,3 +366,22 @@ debugging only plus the page probe (KEXCLICK/KEXGAP/KEXLATE/KEXLONG/KEXEVT) on t
   already exists. If it does, return it as the new package so conv_w produces %WINDIR%\KEXMSI\..._kx98p_kx98.msi
   - matching the registered name. kex suffixes (_kx98p, _kx98) are stripped from the basename before the
   lookup so the check is correct even if the caller passes an already-processed path.
+
+## Build 135 (withdrawn) and Build 136
+
+Build 135 rewrote "NOT Version9X" component conditions on a guess; the KEXMSI.LOG of the next run showed the merged
+.NET 3.0 package has no such conditions. Build 136 reverts it.
+
+Build 136 fixes the real cause of the missing WPF/WF/WCS/XPS files. `merge()` in slip_ext.c extracted every patch
+transform to the same temporary .mst file. Windows Installer 2.0 keeps an applied transform file open until the database
+is closed, so writing the next transform over it failed with STG_E_SHAREVIOLATION (80030020) and only the first patch
+(WCF) got its File/Component rows; the other nine patches' cabinets were embedded but nothing referenced them. Proven
+with probes/msslip.c (a C:\SLIPONE.FLG flag makes it reuse one file): one file -> File stays at 52 rows and every later
+copy fails with 80030020; one file per transform -> File grows to 144 rows. Fix: one GetTempFileName per transform,
+all deleted after the database is closed. Verified in the VM: the merged netfx30a package grows to 16,265,728 bytes and
+its WPF components (font cache service) are installed.
+
+Open after 136: .NET 3.0 SP2 install stops at the WiX custom action ExecSecureObjects
+("Error 0x80070103: failed to process CustomActionData", data "FontCache3.0.0.0\tServiceInstall\t\tINTERACTIVE\t16"),
+which sets the ACL of the PresentationFontCache service. A package merged by build 134/135 is stale: uninstall .NET 3.5
+SP1 and 3.0 SP2 and delete %WINDIR%\KEXMSI\netfx30a_x86_kx98p*.msi before reinstalling.

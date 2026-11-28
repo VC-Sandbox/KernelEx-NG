@@ -155,8 +155,11 @@ static int cab_names(const char *path, char *buf, int cb, char **names, int max)
 /* the merged package for pkg + patches; FALSE if it cannot be made */
 static BOOL merge(const char *pkg, char patches[][MAX_PATH], int np, char *out)
 {
-    MH db; UINT e; int i; char dir[MAX_PATH], *base, cab[MAX_PATH], tmp[MAX_PATH], tdir[MAX_PATH];
+    MH db; UINT e; int i; char dir[MAX_PATH], *base, cab[MAX_PATH], tdir[MAX_PATH];
     static char cabs[16][MAX_PATH]; int ncab = 0;
+    /* one file per transform: MSI 2.0 keeps an applied .mst open until the database is closed, so writing the
+     * next transform over it fails with STG_E_SHAREVIOLATION and only the first patch got merged (probe msslip) */
+    static char msts[64][MAX_PATH]; int nmst = 0;
     if (!GetWindowsDirectoryA(dir, MAX_PATH - 40)) return FALSE;
     lstrcatA(dir, "\\KEXMSI"); CreateDirectoryA(dir, NULL);
     base = rchr(pkg, '\\'); base = base ? base + 1 : (char *)pkg;
@@ -164,7 +167,7 @@ static BOOL merge(const char *pkg, char patches[][MAX_PATH], int np, char *out)
     {   char *dot = rchr(out, '.'); if (dot && dot > rchr(out, '\\')) *dot = 0; lstrcatA(out, "_kx98p.msi"); }
     if (!CopyFileA(pkg, out, FALSE)) return FALSE;
     SetFileAttributesA(out, FILE_ATTRIBUTE_NORMAL);
-    if (!GetTempPathA(MAX_PATH, tdir) || !GetTempFileNameA(tdir, "KXT", 0, tmp)) return FALSE;
+    if (!GetTempPathA(MAX_PATH, tdir)) return FALSE;
     if ((e = M.odb(out, (LPCSTR)(ULONG_PTR)1 /* TRANSACT */, &db))) { kex_crashnote("MSI 3 patches: cannot open the package copy (error)", e, 0, 0, 0); return FALSE; }
     for (i = 0; i < np; i++) {
         char list[512], *p, *q; WCHAR wp[MAX_PATH]; IStorage *stg = NULL;
@@ -174,7 +177,9 @@ static BOOL merge(const char *pkg, char patches[][MAX_PATH], int np, char *out)
             for (p = list; p && *p; p = q ? q + 1 : NULL) {
                 if (*p == ':') p++;
                 q = chr(p, ';'); if (q) *q = 0;
-                if (extract_transform(stg, p, tmp) >= 0) { e = M.at(db, tmp, 0x3F /* every validation error ignored */);
+                if (nmst < 64 && GetTempFileNameA(tdir, "KXT", 0, msts[nmst])) {
+                    const char *t = msts[nmst++];
+                    e = extract_transform(stg, p, t) >= 0 ? M.at(db, t, 0x3F /* every validation error ignored */) : (UINT)-1;
                     {   static LONG k; if (InterlockedIncrement(&k) <= 40) kex_crashnote("MSI 3 patches: transform applied to the merged package (patch #, result)", (DWORD)i, e, 0, 0); } }
             }
             /* cabinet streams: enumerate the patch's IStorage directly, find streams with MSCF magic.
@@ -223,7 +228,6 @@ static BOOL merge(const char *pkg, char patches[][MAX_PATH], int np, char *out)
         }
         exec(db, "DELETE FROM `Media` WHERE `DiskId` >= 100 AND `DiskId` < 200", 0);   /* the patch's own Media row */
     }
-    DeleteFileA(tmp);
     {   /* number every cabinet's files once, last cabinet wins; one Media row each */
         static char nbuf[128 * 1024]; static char *names[4096]; int c, k, nn, next = 2000; MH uv;
         for (c = 0; c < ncab; c++) {
@@ -254,6 +258,7 @@ static BOOL merge(const char *pkg, char patches[][MAX_PATH], int np, char *out)
         }
     }
     e = M.commit(db); M.ch(db);
+    for (i = 0; i < nmst; i++) DeleteFileA(msts[i]);
     kex_crashnote("MSI 3 patches: merged package written (patches, cabinets, commit result, -)", (DWORD)np, (DWORD)ncab, e, 0);
     return e == 0;
 }

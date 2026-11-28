@@ -356,8 +356,7 @@ static void nt_component_conditions(const char *path)
     MP(T_MRGS, MsiRecordGetStringA); MP(T_MCR, MsiCreateRecord); MP(T_MRSS, MsiRecordSetStringA); MP(T_MCH, MsiCloseHandle);
     MP(T_MDC, MsiDatabaseCommit);
 #undef MP
-    static char comp[256][80], cond[256][256]; static char comp9x[256][80], cond9x[256][256];
-    DWORD db = 0, v = 0, rec = 0; int nrow = 0, nrow9x = 0, i, done = 0, any9x = 0;
+    static char comp[256][80], cond[256][256]; DWORD db = 0, v = 0, rec = 0; int nrow = 0, i, done = 0, any9x = 0;
     if (!MsiOpenDatabaseA || !MsiDatabaseOpenViewA || !MsiViewExecute || !MsiViewFetch || !MsiRecordGetStringA || !MsiCreateRecord ||
         !MsiRecordSetStringA || !MsiCloseHandle || !MsiDatabaseCommit) return;
     if (MsiOpenDatabaseA(path, (LPCSTR)(ULONG_PTR)1 /* MSIDBOPEN_TRANSACT */, &db)) return;
@@ -365,12 +364,8 @@ static void nt_component_conditions(const char *path)
         while (!MsiViewFetch(v, &rec)) {
             char c1[80], c2[256]; DWORD a = sizeof(c1), b = sizeof(c2);
             if (!MsiRecordGetStringA(rec, 1, c1, &a) && !MsiRecordGetStringA(rec, 2, c2, &b) && c2[0]) {
-                if (has(c2, "Version9X")) {
-                    if (!has(c2, "NOT Version9X") && !has(c2, "not Version9X")) any9x = 1;
-                    /* negated 9x (NOT Version9X) without VersionNT: collect for xp_cond rewrite
-                     * NOT Version9X -> NOT "" = TRUE so KernelEx-patched components install */
-                    else if (!has(c2, "VersionNT") && nrow9x < 256) { lstrcpyA(comp9x[nrow9x], c1); lstrcpyA(cond9x[nrow9x], c2); nrow9x++; }
-                } else if (has(c2, "VersionNT") && nrow < 256) { lstrcpyA(comp[nrow], c1); lstrcpyA(cond[nrow], c2); nrow++; }
+                if (has(c2, "Version9X")) { if (!has(c2, "NOT Version9X") && !has(c2, "not Version9X")) any9x = 1; }   /* rows that exclude 9x stay */
+                else if (has(c2, "VersionNT") && nrow < 256) { lstrcpyA(comp[nrow], c1); lstrcpyA(cond[nrow], c2); nrow++; }
             }
             MsiCloseHandle(rec);
         }
@@ -383,17 +378,6 @@ static void nt_component_conditions(const char *path)
         MsiRecordSetStringA(r, 1, nc); MsiRecordSetStringA(r, 2, comp[i]);
         if (!MsiDatabaseOpenViewA(db, "UPDATE `Component` SET `Condition` = ? WHERE `Component` = ?", &uv)) {
             if (!MsiViewExecute(uv, r)) { done++; if (done <= 12) { msilog("  component condition", cond[i], 0); msilog("    as on NT:", nc, 0); } }
-            MsiCloseHandle(uv);
-        }
-        MsiCloseHandle(r);
-    }
-    for (i = 0; !any9x && i < nrow9x; i++) {
-        char nc[512]; DWORD r, uv = 0;
-        if (!xp_cond(cond9x[i], nc, sizeof(nc))) continue;
-        if (!(r = MsiCreateRecord(2))) break;
-        MsiRecordSetStringA(r, 1, nc); MsiRecordSetStringA(r, 2, comp9x[i]);
-        if (!MsiDatabaseOpenViewA(db, "UPDATE `Component` SET `Condition` = ? WHERE `Component` = ?", &uv)) {
-            if (!MsiViewExecute(uv, r)) { done++; if (done <= 12) { msilog("  component condition 9x", cond9x[i], 0); msilog("    as on NT:", nc, 0); } }
             MsiCloseHandle(uv);
         }
         MsiCloseHandle(r);

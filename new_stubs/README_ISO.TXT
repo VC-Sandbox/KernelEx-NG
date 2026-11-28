@@ -48,7 +48,15 @@ Explorer crash diagnosis (EXPLDBG) - independent of KernelEx-NG
   c) The log is appended after each crash. Run EXPLDBG.BAT again after each Windows start.
 
 Build history (most recent first)
-  Build 135 (2026-11-28): .NET 3.5 SP1 on Windows 98: fix WF/WPF/WCS/XPS components still not installing after 134.
+  Build 136 (2026-11-28): .NET 3.5 SP1 on Windows 98: the WF/WPF/WCS/XPS files of .NET 3.0 SP2 are now merged.
+    Cause: the patch merge wrote every patch transform to one temporary file; Windows Installer 2.0 keeps an
+    applied transform open, so all transforms after the first failed (share violation) and only the WCF patch
+    was merged. Each transform now gets its own temporary file. Build 135's condition rewrite was a wrong guess
+    and is removed. Still open: the .NET 3.0 SP2 install stops at the ExecSecureObjects custom action (font cache
+    service permissions). If 134/135 was used: uninstall .NET 3.5 SP1 and .NET 3.0 SP2, delete
+    C:\WINDOWS\KEXMSI\netfx30a_x86_kx98p*.msi, then run the .NET 3.5 SP1 setup again.
+
+  Build 135 (2026-11-28): WITHDRAWN (wrong guess, removed in 136). Rewrote NOT Version9X component conditions.
     Root cause: patch transforms for WPF/WF/WCS/XPS add Component rows with condition "NOT Version9X".
     On Windows 98 this evaluates to NOT 410 = FALSE, so MSI generates ChangeMedia calls for the cabs
     but no FileCopy operations. nt_component_conditions() in msicompat_ext.c previously only handled

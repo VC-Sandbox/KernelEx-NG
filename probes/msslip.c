@@ -103,7 +103,8 @@ int main(int argc, char **argv)
                 char mst[MAX_PATH]; if (*p == ':') p++;
                 q = strchr(p, ';'); if (q) *q = 0;
                 MultiByteToWideChar(CP_ACP, 0, p, -1, tn, 64);
-                sprintf(mst, "C:\\SLIP%d_%s.MST", i, *p == '#' ? "P" : "D");
+                if (GetFileAttributesA("C:\\SLIPONE.FLG") != INVALID_FILE_ATTRIBUTES) lstrcpyA(mst, "C:\\SLIP.MST");   /* one file for all, as kexnt's merge did */
+                else sprintf(mst, "C:\\SLIP%d_%s.MST", i, *p == '#' ? "P" : "D");
                 if (extract_transform(stg, tn, mst)) {
                     e = MsiDatabaseApplyTransformA(db, mst, 0x3F /* ignore every error */);
                     LOG("  apply %s: %u\n", p, e);
