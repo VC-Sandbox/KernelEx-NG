@@ -48,6 +48,14 @@ Explorer crash diagnosis (EXPLDBG) - independent of KernelEx-NG
   c) The log is appended after each crash. Run EXPLDBG.BAT again after each Windows start.
 
 Build history (most recent first)
+  Build 135 (2026-11-28): .NET 3.5 SP1 on Windows 98: fix WF/WPF/WCS/XPS components still not installing after 134.
+    Root cause: patch transforms for WPF/WF/WCS/XPS add Component rows with condition "NOT Version9X".
+    On Windows 98 this evaluates to NOT 410 = FALSE, so MSI generates ChangeMedia calls for the cabs
+    but no FileCopy operations. nt_component_conditions() in msicompat_ext.c previously only handled
+    pure VersionNT conditions and ignored negated Version9X conditions. Fix: collect "NOT Version9X"
+    conditions (without VersionNT) into a second list and rewrite them through xp_cond() so they become
+    "NOT """ = TRUE, allowing all WF/WPF/WCS/XPS files to be installed. Fixed in msicompat_ext.c.
+
   Build 134 (2026-11-28): .NET 3.5 SP1 on Windows 98: fix WF/WPF/WCS/XPS components still missing after 133.
     Root cause: DOTNETFX35.EXE makes a second MsiInstallProductW call for netfx30a_x86.msi without PATCH=
     (chain verify/repair pass). Without PATCH=, kex_slip_install returned FALSE so conv_w processed the
